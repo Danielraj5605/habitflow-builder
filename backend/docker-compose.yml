@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  habitflow-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALGORITHM=${ALGORITHM}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - ENVIRONMENT=${ENVIRONMENT}
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Local PostgreSQL for development
+  # postgres:
+  #   image: postgres:15
+  #   environment:
+  #     POSTGRES_DB: habitflow
+  #     POSTGRES_USER: habitflow
+  #     POSTGRES_PASSWORD: habitflow123
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #     - ./database_schema.sql:/docker-entrypoint-initdb.d/init.sql
+
+# volumes:
+#   postgres_data:
