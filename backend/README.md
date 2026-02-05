@@ -85,7 +85,7 @@ cp .env.example .env
 Update the `.env` file with your Neon DB connection string:
 
 ```env
-DATABASE_URL=postgresql://neondb_owner:npg_zsT0Ft5QWnJx@ep-plain-king-a129zxcm-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+DATABASE_URL=postgresql://neondb_owner:npg_4lUXyBkMJI9c@ep-still-union-aixilbd8-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require
 SECRET_KEY=your-secret-key-here-change-in-production
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=1440
@@ -99,7 +99,7 @@ The application will automatically create tables on startup. Alternatively, you 
 
 ```bash
 # Connect to your Neon DB and run the schema
-psql 'postgresql://neondb_owner:npg_zsT0Ft5QWnJx@ep-plain-king-a129zxcm-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require' -f database_schema.sql
+psql 'postgresql://neondb_owner:npg_4lUXyBkMJI9c@ep-still-union-aixilbd8-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require' -f database_schema.sql
 ```
 
 ### 6. Run the Application
