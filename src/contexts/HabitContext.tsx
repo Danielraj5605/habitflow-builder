@@ -16,15 +16,30 @@ interface Habit {
   tags: string[];
   title: string;
   icon: string;
+  identityStatement?: string;
   streak: number;
+  consistencyScore: number;
 }
 
 interface HabitContextType {
   habits: Habit[];
   loading: boolean;
   error: string | null;
-  addHabit: (habit: { name: string; description?: string; frequency: string }) => Promise<void>;
-  updateHabit: (id: number, updates: Partial<Habit>) => Promise<void>;
+  addHabit: (habit: { 
+    name: string; 
+    description?: string; 
+    frequency: string; 
+    identity_statement?: string;
+    icon?: string;
+    weekly_goal?: number;
+    tags?: string[];
+  }) => Promise<void>;
+  updateHabit: (id: number, updates: Partial<Habit> & { 
+    identity_statement?: string;
+    name?: string;
+    weekly_goal?: number;
+    is_active?: boolean;
+  }) => Promise<void>;
   deleteHabit: (id: number) => Promise<void>;
   toggleHabitDay: (habitId: number, dayIndex: number) => Promise<void>;
   getHabitById: (id: number) => Habit | undefined;
@@ -66,7 +81,9 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         isActive: habit.is_active !== undefined ? habit.is_active : habit.isActive !== undefined ? habit.isActive : true,
         tags: habit.tags || [],
         icon: habit.icon || '🎯',
+        identityStatement: habit.identity_statement || habit.identityStatement || '',
         streak: habit.streak || 0,
+        consistencyScore: habit.consistency_score || habit.consistencyScore || 0,
       }));
       setHabits(transformedData);
     } catch (err) {
@@ -89,7 +106,15 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     refreshHabits();
   }, [refreshHabits]);
 
-  const addHabit = async (habitData: { name: string; description?: string; frequency: string }) => {
+  const addHabit = async (habitData: { 
+    name: string; 
+    description?: string; 
+    frequency: string; 
+    identity_statement?: string;
+    icon?: string;
+    weekly_goal?: number;
+    tags?: string[];
+  }) => {
     await apiAddHabit(habitData);
     // Refetch all habits to get the complete data from backend
     await refreshHabits();

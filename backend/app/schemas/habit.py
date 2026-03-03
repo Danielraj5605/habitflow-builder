@@ -10,6 +10,7 @@ class HabitBase(BaseModel):
     is_active: bool = True
     tags: List[str] = []
     icon: str = "🎯"
+    identity_id: Optional[int] = None
 
 class HabitCreate(HabitBase):
     pass
@@ -22,13 +23,14 @@ class HabitUpdate(BaseModel):
     is_active: Optional[bool] = None
     tags: Optional[List[str]] = None
     icon: Optional[str] = None
+    identity_id: Optional[int] = None
     currentWeek: Optional[List[bool]] = None
-    streak: Optional[int] = None
+    consistency_score: Optional[float] = None
 
 class Habit(HabitBase):
     id: int
     user_id: int
-    streak: int
+    consistency_score: float = 0.0
     currentWeek: List[bool] = []
     created_at: datetime
     updated_at: datetime
@@ -40,6 +42,7 @@ class HabitLogBase(BaseModel):
     habit_id: int
     completed_date: datetime
     notes: Optional[str] = None
+    used_rest_token: Optional[bool] = False
 
 class HabitLogCreate(HabitLogBase):
     pass

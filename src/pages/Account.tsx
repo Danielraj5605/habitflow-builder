@@ -1,330 +1,236 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, Mail, Lock, LogOut, Camera } from "lucide-react";
+import { User, Mail, Lock, LogOut, Crown, Camera } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { fetchWithAuth, updateUserProfile } from "@/lib/api";
+import { motion } from "framer-motion";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+
+const cardStyle = {
+  background: "linear-gradient(135deg, rgba(28,25,41,0.95) 0%, rgba(19,17,28,0.95) 100%)",
+  border: "1px solid rgba(255,255,255,0.07)",
+  borderRadius: "1rem",
+  padding: "1.5rem",
+} as const;
+
+const inputStyle = {
+  background: "rgba(10,10,15,0.8)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  borderRadius: "0.625rem",
+  color: "#F5F0FF",
+  outline: "none",
+  transition: "all 0.2s ease",
+  width: "100%",
+  height: "2.75rem",
+  padding: "0 1rem",
+  fontSize: "0.875rem",
+} as const;
 
 export default function Account() {
   const { toast } = useToast();
   const navigate = useNavigate();
-  
-  const [profileData, setProfileData] = useState({
-    fullName: "",
-    email: "",
-    joinDate: "",
-    totalHabits: 0,
-    completedSessions: 0,
-    name: "",
-  });
+
+  const [profile, setProfile] = useState({ fullName: "", email: "", joinDate: "", totalHabits: 0, completedSessions: 0 });
+  const [pwData, setPwData] = useState({ current: "", next: "", confirm: "" });
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        const userData = await fetchWithAuth(`${API_BASE_URL}/users/me`);
-        
-        // Handle different response structures
-        const userName = userData?.name || "Demo User";
-        const userEmail = userData?.email || "";
-        const createdAt = userData?.created_at || new Date().toISOString();
-        
-        setProfileData({
-          fullName: userName,
-          email: userEmail,
-          joinDate: new Date(createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-          totalHabits: userData?.total_habits || 0,
-          completedSessions: userData?.completed_sessions || 0,
-          name: userData?.name || "",
-        });
-      } catch (error) {
-        console.error("Failed to fetch user profile:", error);
-        toast({
-          variant: "destructive",
-          title: "Failed to load profile",
-          description: "Could not fetch user data. Please try again later.",
-        });
-      }
-    };
+    fetchWithAuth(`${API_BASE_URL}/users/me`).then((d) => {
+      setProfile({
+        fullName: d?.name || "Demo User",
+        email: d?.email || "",
+        joinDate: d?.created_at ? new Date(d.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long" }) : "",
+        totalHabits: d?.total_habits || 0,
+        completedSessions: d?.completed_sessions || 0,
+      });
+    }).catch(() => { });
+  }, []);
 
-    fetchUserProfile();
-  }, [toast]);
-
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
-
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-
-  const handleProfileUpdate = async () => {
+  const handleUpdate = async () => {
     try {
-      const updatedUser = await updateUserProfile({
-        name: profileData.fullName
-      });
-      
-      // Update local state with the response from server
-      setProfileData(prev => ({
-        ...prev,
-        fullName: updatedUser.name || updatedUser.fullName,
-        name: updatedUser.name
-      }));
-      
-      toast({
-        title: "Profile updated successfully!",
-        description: "Your account information has been saved.",
-      });
-      setIsEditingProfile(false);
-    } catch (error) {
-      console.error("Failed to update profile:", error);
-      toast({
-        variant: "destructive",
-        title: "Update failed",
-        description: "Could not update your profile. Please try again.",
-      });
+      const r = await updateUserProfile({ name: profile.fullName });
+      setProfile((p) => ({ ...p, fullName: r.name || r.fullName }));
+      toast({ title: "Profile updated! 👑" });
+      setEditing(false);
+    } catch {
+      toast({ variant: "destructive", title: "Update failed" });
     }
-  };
-
-  const handlePasswordChange = () => {
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast({
-        variant: "destructive",
-        title: "Password mismatch",
-        description: "New passwords don't match. Please try again.",
-      });
-      return;
-    }
-
-    toast({
-      title: "Password updated successfully!",
-      description: "Your password has been changed.",
-    });
-    
-    setPasswordData({
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: "",
-    });
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("token"); // Clear the authentication token
-    toast({
-      title: "Logged out successfully",
-      description: "See you next time! Keep building those habits.",
-    });
-    // Redirect to login page after a short delay
-    setTimeout(() => {
-      navigate("/login");
-    }, 1000);
+    localStorage.removeItem("token");
+    toast({ title: "Signed out", description: "See you soon!" });
+    setTimeout(() => navigate("/login"), 800);
+  };
+
+  const initials = profile.fullName.split(" ").map((n) => n[0]).join("").toUpperCase() || "?";
+
+  const onFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.target.style.borderColor = "rgba(212,168,70,0.5)";
+    e.target.style.boxShadow = "0 0 0 3px rgba(212,168,70,0.1)";
+  };
+  const onBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.target.style.borderColor = "rgba(255,255,255,0.08)";
+    e.target.style.boxShadow = "none";
   };
 
   return (
-    <div className="min-h-screen">
-      {/* Header */}
-        <header className="bg-white/80 backdrop-blur-sm border-b border-border/50 sticky top-0 z-40">
-          <div className="flex items-center justify-between px-6 py-4">
-            <div className="flex items-center gap-4">
-              <SidebarTrigger />
-              <div>
-                <h1 className="text-2xl font-poppins font-bold text-foreground">
-                  Account
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  Manage your profile and account settings
-                </p>
+    <div className="min-h-screen bg-obsidian-night">
+      <header className="page-header sticky top-0 z-40">
+        <div className="flex items-center gap-3 px-4 sm:px-6 py-4">
+          <SidebarTrigger className="hidden md:flex text-muted-foreground hover:text-gold-royal transition-smooth" />
+          <div>
+            <h1 className="font-outfit font-bold text-lg sm:text-2xl text-foreground">Account</h1>
+            <p className="text-xs sm:text-sm" style={{ color: "#6B6380" }}>Manage your profile and settings</p>
+          </div>
+        </div>
+      </header>
+
+      <motion.div
+        className="p-4 sm:p-6 space-y-5 max-w-2xl mx-auto"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        {/* ── Profile Card ── */}
+        <div style={cardStyle}>
+          <div className="flex items-center gap-3 mb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "1rem" }}>
+            <Crown className="w-5 h-5 text-gold-royal" />
+            <h2 className="font-outfit font-semibold text-foreground">Profile Information</h2>
+          </div>
+
+          {/* Avatar */}
+          <div className="flex items-center gap-5 mb-6">
+            <div className="relative">
+              <div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-outfit font-bold"
+                style={{ background: "linear-gradient(135deg, #D4A846 0%, #9B6DFF 100%)", color: "#0A0A0F" }}
+              >
+                {initials}
               </div>
+              <button
+                className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center transition-smooth hover:opacity-80"
+                style={{ background: "rgba(28,25,41,1)", border: "1px solid rgba(212,168,70,0.3)", color: "#D4A846" }}
+              >
+                <Camera className="w-3 h-3" />
+              </button>
+            </div>
+            <div>
+              <h3 className="font-outfit font-semibold text-lg text-foreground">{profile.fullName || "—"}</h3>
+              <p className="text-sm" style={{ color: "#6B6380" }}>{profile.email}</p>
+              {profile.joinDate && (
+                <p className="text-xs mt-0.5" style={{ color: "#6B6380" }}>Member since {profile.joinDate}</p>
+              )}
             </div>
           </div>
-        </header>
 
-        <div className="p-6 space-y-8 max-w-4xl mx-auto">
-          {/* Profile Overview */}
-          <Card className="shadow-medium">
-            <CardHeader>
-              <CardTitle className="font-poppins text-xl flex items-center gap-3">
-                <User className="w-6 h-6 text-primary" />
-                Profile Information
-              </CardTitle>
-              <CardDescription>
-                Your personal information and account details
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Avatar Section */}
-              <div className="flex items-center gap-6">
-                <div className="relative">
-                  <Avatar className="w-24 h-24">
-                    <AvatarImage src="" alt="Profile" />
-                    <AvatarFallback className="text-2xl font-bold bg-gradient-hero text-white">
-                      {profileData.fullName.split(' ').map(n => n[0]).join('')}
-                    </AvatarFallback>
-                  </Avatar>
-                  <Button 
-                    variant="outline" 
-                    size="icon"
-                    className="absolute -bottom-2 -right-2 rounded-full"
-                  >
-                    <Camera className="w-4 h-4" />
-                  </Button>
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold">{profileData.fullName}</h3>
-                  <p className="text-muted-foreground">{profileData.email}</p>
-                  <p className="text-sm text-muted-foreground">Member since {profileData.joinDate}</p>
-                </div>
+          {/* Stats */}
+          <div className="grid grid-cols-2 gap-3 mb-5">
+            {[
+              { label: "Total Habits", val: profile.totalHabits, color: "#4A7BF7" },
+              { label: "Sessions Done", val: profile.completedSessions, color: "#34D399" },
+            ].map(({ label, val, color }) => (
+              <div key={label} className="text-center py-3 rounded-xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <p className="font-outfit font-bold text-2xl" style={{ color }}>{val}</p>
+                <p className="text-xs mt-0.5" style={{ color: "#6B6380" }}>{label}</p>
               </div>
+            ))}
+          </div>
 
-              {/* Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-primary">{profileData.totalHabits}</div>
-                  <div className="text-sm text-muted-foreground">Total Habits</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-success">{profileData.completedSessions}</div>
-                  <div className="text-sm text-muted-foreground">Completed Sessions</div>
-                </div>
-              </div>
-
-              {/* Profile Form */}
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="fullName">Full Name</Label>
-                    <Input
-                      id="fullName"
-                      value={profileData.fullName}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, fullName: e.target.value }))}
-                      disabled={!isEditingProfile}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={profileData.email}
-                      disabled={true}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  {!isEditingProfile ? (
-                    <Button 
-                      variant="outline"
-                      onClick={() => setIsEditingProfile(true)}
-                    >
-                      Edit Profile
-                    </Button>
-                  ) : (
-                    <>
-                      <Button 
-                        variant="hero"
-                        onClick={handleProfileUpdate}
-                      >
-                        Save Changes
-                      </Button>
-                      <Button 
-                        variant="outline"
-                        onClick={() => setIsEditingProfile(false)}
-                      >
-                        Cancel
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Change Password */}
-          <Card className="shadow-medium">
-            <CardHeader>
-              <CardTitle className="font-poppins text-xl flex items-center gap-3">
-                <Lock className="w-6 h-6 text-primary" />
-                Change Password
-              </CardTitle>
-              <CardDescription>
-                Update your password to keep your account secure
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="currentPassword">Current Password</Label>
-                <Input
-                  id="currentPassword"
-                  type="password"
-                  value={passwordData.currentPassword}
-                  onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+          {/* Edit form */}
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium" style={{ color: "#B8B0CC" }}>Full Name</label>
+                <input
+                  value={profile.fullName}
+                  onChange={(e) => setProfile((p) => ({ ...p, fullName: e.target.value }))}
+                  disabled={!editing}
+                  onFocus={onFocus}
+                  onBlur={onBlur}
+                  style={{ ...inputStyle, opacity: editing ? 1 : 0.6 }}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">New Password</Label>
-                <Input
-                  id="newPassword"
-                  type="password"
-                  value={passwordData.newPassword}
-                  onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
-                />
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium" style={{ color: "#B8B0CC" }}>Email</label>
+                <input value={profile.email} disabled style={{ ...inputStyle, opacity: 0.5 }} />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={passwordData.confirmPassword}
-                  onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                />
-              </div>
-              <Button 
-                variant="outline"
-                onClick={handlePasswordChange}
-                disabled={!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
-              >
-                Update Password
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Account Actions */}
-          <Card className="shadow-medium border-destructive/20">
-            <CardHeader>
-              <CardTitle className="font-poppins text-xl flex items-center gap-3 text-destructive">
-                <LogOut className="w-6 h-6" />
-                Account Actions
-              </CardTitle>
-              <CardDescription>
-                Manage your account sessions and data
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-destructive/5 rounded-lg border border-destructive/20">
-                <div>
-                  <h4 className="font-medium">Logout</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Sign out of your HabitFlow account
-                  </p>
-                </div>
-                <Button 
-                  variant="destructive"
-                  onClick={handleLogout}
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Logout
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="flex gap-2">
+              {editing ? (
+                <>
+                  <button onClick={handleUpdate} className="btn-gold px-5 py-2 rounded-xl text-sm font-outfit font-semibold" style={{ color: "#0A0A0F" }}>Save Changes</button>
+                  <button onClick={() => setEditing(false)} className="px-5 py-2 rounded-xl text-sm transition-smooth hover:bg-white/5" style={{ color: "#6B6380", border: "1px solid rgba(255,255,255,0.08)" }}>Cancel</button>
+                </>
+              ) : (
+                <button onClick={() => setEditing(true)} className="px-5 py-2 rounded-xl text-sm font-medium transition-smooth hover:bg-white/5" style={{ color: "#B8B0CC", border: "1px solid rgba(255,255,255,0.1)" }}>Edit Profile</button>
+              )}
+            </div>
+          </div>
         </div>
+
+        {/* ── Change Password ── */}
+        <div style={cardStyle}>
+          <div className="flex items-center gap-3 mb-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "1rem" }}>
+            <Lock className="w-5 h-5" style={{ color: "#4A7BF7" }} />
+            <h2 className="font-outfit font-semibold text-foreground">Change Password</h2>
+          </div>
+          <div className="space-y-3">
+            {[
+              { key: "current", label: "Current Password", ph: "••••••••" },
+              { key: "next", label: "New Password", ph: "New password" },
+              { key: "confirm", label: "Confirm Password", ph: "Repeat new password" },
+            ].map(({ key, label, ph }) => (
+              <div key={key} className="space-y-1.5">
+                <label className="text-xs font-medium" style={{ color: "#B8B0CC" }}>{label}</label>
+                <input
+                  type="password"
+                  placeholder={ph}
+                  value={(pwData as any)[key]}
+                  onChange={(e) => setPwData((p) => ({ ...p, [key]: e.target.value }))}
+                  onFocus={onFocus}
+                  onBlur={onBlur}
+                  style={inputStyle}
+                />
+              </div>
+            ))}
+            <button
+              disabled={!pwData.current || !pwData.next || !pwData.confirm}
+              className="px-5 py-2 rounded-xl text-sm font-medium transition-smooth hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: "rgba(74,123,247,0.12)", color: "#4A7BF7", border: "1px solid rgba(74,123,247,0.2)" }}
+              onClick={() => {
+                if (pwData.next !== pwData.confirm) {
+                  toast({ variant: "destructive", title: "Passwords don't match" }); return;
+                }
+                toast({ title: "Password updated!" });
+                setPwData({ current: "", next: "", confirm: "" });
+              }}
+            >
+              Update Password
+            </button>
+          </div>
+        </div>
+
+        {/* ── Danger ── */}
+        <div className="rounded-2xl p-5" style={{ background: "rgba(248,113,113,0.05)", border: "1px solid rgba(248,113,113,0.15)" }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-outfit font-semibold text-sm" style={{ color: "#F87171" }}>Sign Out</h3>
+              <p className="text-xs mt-0.5" style={{ color: "#6B6380" }}>Sign out of your HabitFlow account</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-smooth hover:opacity-80"
+              style={{ background: "rgba(248,113,113,0.12)", color: "#F87171", border: "1px solid rgba(248,113,113,0.2)" }}
+            >
+              <LogOut className="w-4 h-4" />
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </motion.div>
     </div>
   );
 }

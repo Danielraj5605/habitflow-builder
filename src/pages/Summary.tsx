@@ -2,696 +2,372 @@ import React, { useEffect, useState } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { fetchWithAuth } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { TrendingUp, Calendar, Flame, Target, Award, BarChart3, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
+  TrendingUp, Calendar, Flame, Target, Award, BarChart3, Plus, Crown,
+} from "lucide-react";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Area, AreaChart,
 } from "recharts";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+
 interface OverallSummary {
-  total_habits: number;
-  active_habits: number;
-  overall_completion_rate: number;
-  current_streak: number;
-  longest_streak: number;
-  total_completions: number;
+  total_habits: number; active_habits: number;
+  overall_completion_rate: number; current_streak: number;
+  longest_streak: number; total_completions: number;
 }
-
-interface WeeklySummary {
-  week_start: string;
-  completion_rate: number;
-}
-
+interface WeeklySummary { week_start: string; completion_rate: number; }
 interface HabitSummaryData {
-  habit_id: string;
-  habit_name: string;
-  current_streak: number;
-  longest_streak: number;
-  total_completions: number;
-  completion_rate: number;
+  habit_id: string; habit_name: string; current_streak: number;
+  longest_streak: number; total_completions: number; completion_rate: number;
 }
+interface DailyCompletion { date: string; count: number; }
 
-interface DailyCompletion {
-  date: string;
-  count: number;
-}
+const MILESTONES = [
+  { title: "First Habit", icon: "🎯", req: (s: OverallSummary) => s.total_habits >= 1 },
+  { title: "7-Day Streak", icon: "🔥", req: (s: OverallSummary) => s.longest_streak >= 7 },
+  { title: "30-Day Streak", icon: "💎", req: (s: OverallSummary) => s.longest_streak >= 30 },
+  { title: "Century Club", icon: "🏆", req: (s: OverallSummary) => s.total_completions >= 100 },
+  { title: "Habit Hoarder", icon: "🌟", req: (s: OverallSummary) => s.total_habits >= 5 },
+  { title: "Consistency King", icon: "👑", req: (s: OverallSummary) => s.total_completions >= 21 },
+];
+
+const customTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{
+      background: "rgba(28,25,41,0.95)", border: "1px solid rgba(212,168,70,0.2)",
+      borderRadius: "0.625rem", padding: "0.625rem 1rem",
+    }}>
+      <p style={{ color: "#6B6380", fontSize: "0.75rem" }}>{label}</p>
+      <p style={{ color: "#D4A846", fontWeight: 700, fontFamily: "'Outfit', sans-serif" }}>
+        {payload[0].value}%
+      </p>
+    </div>
+  );
+};
 
 export default function Summary() {
   const navigate = useNavigate();
   const { toast } = useToast();
-
-  const [overallSummary, setOverallSummary] = useState<OverallSummary | null>(null);
-  const [weeklySummaries, setWeeklySummaries] = useState<WeeklySummary[]>([]);
+  const [overall, setOverall] = useState<OverallSummary | null>(null);
+  const [weekly, setWeekly] = useState<WeeklySummary[]>([]);
   const [topHabits, setTopHabits] = useState<HabitSummaryData[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [dailyCompletions, setDailyCompletions] = useState<DailyCompletion[]>([]);
+  const [daily, setDaily] = useState<DailyCompletion[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchOverallSummary = async () => {
-        try {
-            const response = await fetchWithAuth(`${API_BASE_URL}/summary/overall`);
-            setOverallSummary(response);
-        } catch (error) {
-            console.error("Failed to fetch overall summary:", error);
-            toast({
-                title: "Error",
-                description: "Failed to load overall summary data.",
-                variant: "destructive",
-            });
-        }
+    const fetch_ = async () => {
+      setLoading(true);
+      try {
+        const [ov, wk, top, dc] = await Promise.allSettled([
+          fetchWithAuth(`${API_BASE_URL}/summary/overall`),
+          fetchWithAuth(`${API_BASE_URL}/summary/weekly`),
+          fetchWithAuth(`${API_BASE_URL}/summary/top-habits`),
+          fetchWithAuth(`${API_BASE_URL}/summary/daily-completions`),
+        ]);
+        if (ov.status === "fulfilled") setOverall(ov.value);
+        if (wk.status === "fulfilled") setWeekly(Array.isArray(wk.value) ? wk.value : []);
+        if (top.status === "fulfilled") setTopHabits(Array.isArray(top.value) ? top.value : []);
+        if (dc.status === "fulfilled") setDaily(Array.isArray(dc.value) ? dc.value : []);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
     };
-
-    const fetchWeeklySummary = async () => {
-        try {
-            const response = await fetchWithAuth(`${API_BASE_URL}/summary/weekly`);
-            setWeeklySummaries(response);
-        } catch (error) {
-            console.error("Failed to fetch weekly summary:", error);
-            toast({
-                title: "Error",
-                description: "Failed to load weekly summary data.",
-                variant: "destructive",
-            });
-        }
-    };
-
-    const fetchTopHabits = async () => {
-        try {
-            const response = await fetchWithAuth(`${API_BASE_URL}/summary/top-habits`);
-            setTopHabits(response);
-        } catch (error) {
-            console.error("Failed to fetch top habits:", error);
-            toast({
-                title: "Error",
-                description: "Failed to load top habits data.",
-                variant: "destructive",
-            });
-        }
-    };
-
-    const fetchDailyCompletions = async () => {
-        try {
-            const response = await fetchWithAuth(`${API_BASE_URL}/summary/daily-completions`);
-            setDailyCompletions(response);
-        } catch (error) {
-            console.error("Failed to fetch daily completions:", error);
-            toast({
-                title: "Error",
-                description: "Failed to load daily completions data.",
-                variant: "destructive",
-            });
-        }
-    };
-
-    const fetchSummaryData = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            await fetchOverallSummary();
-            await fetchWeeklySummary();
-            await fetchTopHabits();
-            await fetchDailyCompletions();
-        } catch (err) {
-            console.error("Failed to fetch summary data:", err);
-            setError("Failed to load summary data. Please try again later.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    fetchSummaryData();
+    fetch_();
   }, []);
 
-  // Calculate real statistics from habits data
-  const calculateStats = () => {
-    if (!overallSummary) {
-      return {
-        monthlyCompletion: 0,
-        bestStreak: 0,
-        activeHabits: 0,
-        totalCompletions: 0,
-        overallCompletionRate: 0
-      };
+  const weeklyData = weekly.map((w) => ({
+    week: new Date(w.week_start).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    completion: Math.round(w.completion_rate),
+  }));
+
+  const milestones = MILESTONES.map((m) => ({
+    ...m,
+    unlocked: overall ? m.req(overall) : false,
+  }));
+
+  // Heatmap
+  const heatmapCells = (() => {
+    const today = new Date();
+    const ago30 = new Date(today.getTime() - 30 * 86400000);
+    const startOfWeek = new Date(ago30);
+    startOfWeek.setDate(ago30.getDate() - ago30.getDay());
+    const cells: { date: Date; count: number; inRange: boolean; isToday: boolean }[] = [];
+    for (let i = 0; i < 42; i++) {
+      const date = new Date(startOfWeek);
+      date.setDate(startOfWeek.getDate() + i);
+      const ds = date.toISOString().split("T")[0];
+      const found = daily.find((d) => d.date === ds);
+      cells.push({
+        date,
+        count: found?.count || 0,
+        inRange: date >= ago30 && date <= today,
+        isToday: date.toDateString() === today.toDateString(),
+      });
     }
+    return cells;
+  })();
 
-    return {
-      monthlyCompletion: Math.round(overallSummary.overall_completion_rate),
-      bestStreak: overallSummary.longest_streak,
-      activeHabits: overallSummary.active_habits,
-      totalCompletions: overallSummary.total_completions,
-      overallCompletionRate: overallSummary.overall_completion_rate
-    };
+  const heatColor = (count: number, inRange: boolean) => {
+    if (!inRange) return "rgba(10,10,15,0.3)";
+    if (count === 0) return "rgba(39,35,54,0.8)";
+    if (count <= 1) return "rgba(74,123,247,0.3)";
+    if (count <= 3) return "rgba(155,109,255,0.45)";
+    if (count <= 5) return "rgba(155,109,255,0.75)";
+    return "#D4A846";
   };
 
-  const stats = calculateStats();
+  const statCards = [
+    { label: "Completion Rate", value: `${Math.round(overall?.overall_completion_rate || 0)}%`, icon: TrendingUp, color: "#34D399" },
+    { label: "Longest Streak", value: `${overall?.longest_streak || 0}d`, icon: Flame, color: "#FBBF24" },
+    { label: "Active Habits", value: overall?.active_habits || 0, icon: Target, color: "#4A7BF7" },
+    { label: "Total Check-ins", value: overall?.total_completions || 0, icon: Award, color: "#9B6DFF" },
+  ];
 
-  // Generate weekly data based on current habits
-  const generateWeeklyData = () => {
-    if (!weeklySummaries || weeklySummaries.length === 0) return [];
-    
-    return weeklySummaries.map(ws => ({
-      week: new Date(ws.week_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      completion: Math.round(ws.completion_rate)
-    }));
+  const itemVariants = {
+    hidden: { opacity: 0, y: 16 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" as const } },
   };
-
-  const weeklyData = generateWeeklyData();
-
-  // Get top performing habits
-  const getTopHabits = () => {
-    if (!topHabits || topHabits.length === 0) return [];
-    
-    return topHabits.map(habit => ({
-      name: habit.habit_name,
-      streak: habit.current_streak,
-      completion: Math.round(habit.completion_rate)
-    }));
-  };
-
-  const displayedTopHabits = getTopHabits();
-
-  // Calculate milestones based on real data
-  const calculateMilestones = () => {
-    const totalHabits = overallSummary?.total_habits || 0;
-    const maxStreak = overallSummary?.longest_streak || 0;
-    const totalCompletions = overallSummary?.total_completions || 0;
-    
-    return [
-      { 
-        title: "First Habit Created", 
-        unlocked: totalHabits >= 1, 
-        icon: "🎯" 
-      },
-      { 
-        title: "Streak Master", 
-        unlocked: maxStreak >= 7, 
-        icon: "🔥" 
-      },
-      { 
-        title: "Consistency King", 
-        unlocked: totalCompletions >= 21, 
-        icon: "👑" 
-      },
-      { 
-        title: "Habit Hero", 
-        unlocked: totalHabits >= 5 && maxStreak >= 14, 
-        icon: "🦸" 
-      },
-    ];
-  };
-
-  const milestones = calculateMilestones();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>Loading summary data...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-red-500">{error}</p>
-      </div>
-    );
-  }
+  const container = { hidden: {}, visible: { transition: { staggerChildren: 0.08 } } };
 
   return (
-    <div className="min-h-screen">
-      {/* Header */}
-        <header className="bg-white/80 backdrop-blur-sm border-b border-border/50 sticky top-0 z-40">
-          <div className="flex items-center justify-between px-6 py-4">
-            <div className="flex items-center gap-4">
-              <SidebarTrigger />
-              <div>
-                <h1 className="text-2xl font-poppins font-bold text-foreground">
-                  Progress Summary
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  Track your habit-building journey and celebrate milestones
-                </p>
-              </div>
+    <div className="min-h-screen bg-obsidian-night">
+      {/* ── Header ── */}
+      <header className="page-header sticky top-0 z-40">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4">
+          <div className="flex items-center gap-3">
+            <SidebarTrigger className="hidden md:flex text-muted-foreground hover:text-gold-royal transition-smooth" />
+            <div>
+              <h1 className="font-outfit font-bold text-lg sm:text-2xl text-foreground">Analytics</h1>
+              <p className="text-xs sm:text-sm" style={{ color: "#6B6380" }}>Your habit-building journey at a glance</p>
             </div>
           </div>
-        </header>
-
-        <div className="p-6 space-y-8 max-w-7xl mx-auto">
-          {/* Overview Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="shadow-soft hover:shadow-medium transition-smooth">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4" />
-                  Overall Completion
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-primary mb-2">{stats.monthlyCompletion}%</div>
-                <p className="text-sm text-muted-foreground">Average completion rate</p>
-                <Progress value={stats.monthlyCompletion} className="mt-3 h-2" />
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-soft hover:shadow-medium transition-smooth">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <Flame className="w-4 h-4" />
-                  Longest Streak
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-warning mb-2">{stats.bestStreak}</div>
-                <p className="text-sm text-muted-foreground">Days in a row</p>
-                <div className="flex items-center gap-1 mt-3">
-                  <Flame className="w-4 h-4 text-warning streak-flame" />
-                  <span className="text-sm text-warning font-medium">
-                    {stats.bestStreak > 0 ? "Keep it up!" : "Start your streak!"}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-soft hover:shadow-medium transition-smooth">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <Target className="w-4 h-4" />
-                  Total Habits
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-primary mb-2">{stats.activeHabits}</div>
-                <p className="text-sm text-muted-foreground">Currently tracking</p>
-                <Badge variant="secondary" className="mt-3">
-                  All active
-                </Badge>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Weekly Progress Chart */}
-          <Card className="shadow-medium">
-            <CardHeader>
-              <CardTitle className="font-poppins text-xl flex items-center gap-3">
-                <BarChart3 className="w-6 h-6 text-primary" />
-                Weekly Progress
-              </CardTitle>
-              <CardDescription>
-                Your completion rates over the past weeks
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {weeklyData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart
-                      data={weeklyData}
-                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="week" />
-                      <YAxis />
-                      <Tooltip />
-                      <Line
-                        type="monotone"
-                        dataKey="completion" // Changed from completionRate
-                        stroke="#8884d8"
-                        activeDot={{ r: 8 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <p className="text-muted-foreground text-center py-8">
-                    No weekly data available yet. Start tracking habits to see your progress!
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Daily Completions Heatmap */}
-          <Card className="shadow-medium">
-            <CardHeader>
-              <CardTitle className="font-poppins text-xl flex items-center gap-3">
-                <Calendar className="w-6 h-6 text-primary" />
-                Daily Activity Heatmap
-              </CardTitle>
-              <CardDescription>
-                Your habit completion journey over the last 30 days
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="text-center py-8">
-                  <div className="animate-pulse">
-                    <div className="grid grid-cols-7 gap-2 mb-4">
-                      {Array.from({ length: 35 }).map((_, i) => (
-                        <div key={i} className="w-8 h-8 bg-gray-200 rounded-md"></div>
-                      ))}
-                    </div>
-                  </div>
-                  <p className="text-muted-foreground">Loading your activity...</p>
-                </div>
-              ) : error ? (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Calendar className="w-8 h-8 text-red-500" />
-                  </div>
-                  <p className="text-red-500 font-medium">Unable to load activity data</p>
-                  <p className="text-sm text-muted-foreground mt-1">Please try refreshing the page</p>
-                </div>
-              ) : dailyCompletions.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-20 h-20 bg-gradient-to-br from-blue-50 to-purple-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Calendar className="w-10 h-10 text-blue-500" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">Start Your Journey</h3>
-                  <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                    Complete your first habit to see your activity heatmap come to life!
-                  </p>
-                  <Button onClick={() => navigate('/habits')} className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Your First Habit
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {/* Heatmap Legend */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span>Less</span>
-                      <div className="flex gap-1">
-                        <div className="w-3 h-3 rounded-sm bg-slate-100 border border-slate-200"></div>
-                        <div className="w-3 h-3 rounded-sm bg-emerald-200 border border-emerald-300"></div>
-                        <div className="w-3 h-3 rounded-sm bg-emerald-400 border border-emerald-500"></div>
-                        <div className="w-3 h-3 rounded-sm bg-emerald-600 border border-emerald-700"></div>
-                        <div className="w-3 h-3 rounded-sm bg-emerald-800 border border-emerald-900"></div>
-                      </div>
-                      <span>More</span>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {dailyCompletions.length} days tracked
-                    </div>
-                  </div>
-
-                  {/* Custom Heatmap Grid */}
-                  <div className="space-y-4">
-                    {/* Month Labels */}
-                    <div className="grid grid-cols-7 gap-2 text-xs text-muted-foreground text-center">
-                      <div>Sun</div>
-                      <div>Mon</div>
-                      <div>Tue</div>
-                      <div>Wed</div>
-                      <div>Thu</div>
-                      <div>Fri</div>
-                      <div>Sat</div>
-                    </div>
-
-                    {/* Heatmap Grid */}
-                    <div className="grid grid-cols-7 gap-2">
-                      {(() => {
-                        const today = new Date();
-                        const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-                        const startOfWeek = new Date(thirtyDaysAgo);
-                        startOfWeek.setDate(thirtyDaysAgo.getDate() - thirtyDaysAgo.getDay());
-                        
-                        const days = [];
-                        for (let i = 0; i < 42; i++) {
-                          const date = new Date(startOfWeek);
-                          date.setDate(startOfWeek.getDate() + i);
-                          
-                          const dateStr = date.toISOString().split('T')[0];
-                          const completion = dailyCompletions.find(d => d.date === dateStr);
-                          const count = completion?.count || 0;
-                          
-                          const isInRange = date >= thirtyDaysAgo && date <= today;
-                          const isToday = date.toDateString() === today.toDateString();
-                          
-                          let bgColor = 'bg-slate-50 border-slate-200';
-                          if (isInRange) {
-                            if (count === 0) bgColor = 'bg-slate-100 border-slate-200 hover:bg-slate-150';
-                            else if (count <= 2) bgColor = 'bg-emerald-200 border-emerald-300 hover:bg-emerald-250';
-                            else if (count <= 4) bgColor = 'bg-emerald-400 border-emerald-500 hover:bg-emerald-450';
-                            else if (count <= 6) bgColor = 'bg-emerald-600 border-emerald-700 hover:bg-emerald-650';
-                            else bgColor = 'bg-emerald-800 border-emerald-900 hover:bg-emerald-850';
-                          }
-                          
-                          days.push(
-                            <div
-                              key={i}
-                              className={`
-                                w-8 h-8 rounded-md border-2 transition-all duration-200 cursor-pointer
-                                hover:scale-110 hover:shadow-md relative group
-                                ${bgColor}
-                                ${isToday ? 'ring-2 ring-blue-500 ring-offset-1' : ''}
-                                ${!isInRange ? 'opacity-30' : ''}
-                              `}
-                              title={`${date.toLocaleDateString()}: ${count} completions`}
-                            >
-                              {isToday && (
-                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-white"></div>
-                              )}
-                              
-                              {/* Tooltip */}
-                              <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap z-50 pointer-events-none">
-                                <div className="font-semibold text-center">{date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
-                                <div className="text-center text-slate-200">{count} completion{count !== 1 ? 's' : ''}</div>
-                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
-                              </div>
-                            </div>
-                          );
-                        }
-                        return days;
-                      })()
-                      }
-                    </div>
-                  </div>
-
-                  {/* Summary Stats */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-green-600">
-                        {dailyCompletions.reduce((sum, day) => sum + day.count, 0)}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Total Completions</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-blue-600">
-                        {dailyCompletions.filter(day => day.count > 0).length}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Active Days</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-purple-600">
-                        {Math.round((dailyCompletions.filter(day => day.count > 0).length / dailyCompletions.length) * 100)}%
-                      </div>
-                      <div className="text-sm text-muted-foreground">Consistency</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-orange-600">
-                        {Math.max(...dailyCompletions.map(day => day.count), 0)}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Best Day</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Per-Habit Statistics */}
-          <Card className="shadow-medium">
-            <CardHeader>
-              <CardTitle className="font-poppins text-xl flex items-center gap-3">
-                <Target className="w-6 h-6 text-primary" />
-                Per-Habit Statistics
-              </CardTitle>
-              <CardDescription>
-                Detailed insights into your individual habits
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">Loading habit statistics...</p>
-                </div>
-              ) : error ? (
-                <div className="text-center py-8">
-                  <p className="text-red-500">Error loading habit statistics.</p>
-                </div>
-              ) : topHabits.length === 0 ? (
-                <div className="text-center py-8">
-                  <Target className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground mb-4">
-                    No habits to display statistics for yet.
-                  </p>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => navigate("/add-habit")}
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Your First Habit
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {topHabits.map((habit) => (
-                    <Card key={habit.habit_id} className="shadow-soft hover:shadow-medium transition-smooth">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-lg font-medium flex items-center gap-2">
-                          {habit.habit_name}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm text-muted-foreground">Current Streak</p>
-                            <p className="text-xl font-bold text-warning">{habit.current_streak} days</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Longest Streak</p>
-                            <p className="text-xl font-bold text-success">{habit.longest_streak} days</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Total Completions</p>
-                            <p className="text-xl font-bold text-primary">{habit.total_completions}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Completion Rate</p>
-                            <p className="text-xl font-bold text-info">{Math.round(habit.completion_rate)}%</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Top Performing Habits */}
-            <Card className="shadow-medium">
-              <CardHeader>
-                <CardTitle className="font-poppins text-xl flex items-center gap-3">
-                  <Award className="w-6 h-6 text-success" />
-                  Top Performing Habits
-                </CardTitle>
-                <CardDescription>
-                  {displayedTopHabits.length === 0 && !loading && !error
-                    ? "Create habits to see your top performers" 
-                    : "Your most consistent habits"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">Loading top habits...</p>
-                  </div>
-                ) : error ? (
-                  <div className="text-center py-8">
-                    <p className="text-red-500">Error loading top habits.</p>
-                  </div>
-                ) : displayedTopHabits.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Target className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground mb-4">
-                      No habits to analyze yet
-                    </p>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => navigate("/add-habit")}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Create Your First Habit
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {displayedTopHabits.map((habit, index) => (
-                      <div key={habit.name} className="flex items-center justify-between p-4 rounded-lg border bg-card">
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-sm">
-                            {index + 1}
-                          </div>
-                          <div>
-                            <div className="font-medium">{habit.name}</div>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Flame className="w-3 h-3 text-warning" />
-                              <span>{habit.streak} day streak</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-bold text-success">{habit.completion}%</div>
-                          <div className="text-xs text-muted-foreground">completion rate</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Milestones */}
-            <Card className="shadow-medium">
-              <CardHeader>
-                <CardTitle className="font-poppins text-xl flex items-center gap-3">
-                  <Award className="w-6 h-6 text-warning" />
-                  Milestones
-                </CardTitle>
-                <CardDescription>
-                  Achievements you've unlocked on your journey
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {milestones.map((milestone) => (
-                    <div 
-                      key={milestone.title}
-                      className={`flex items-center gap-4 p-4 rounded-lg border transition-smooth ${
-                        milestone.unlocked 
-                          ? "bg-success/10 border-success/20" 
-                          : "bg-muted/50 border-muted"
-                      }`}
-                    >
-                      <div className="text-2xl">{milestone.icon}</div>
-                      <div className="flex-1">
-                        <div className={`font-medium ${
-                          milestone.unlocked ? "text-success" : "text-muted-foreground"
-                        }`}>
-                          {milestone.title}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {milestone.unlocked ? "Unlocked!" : "Keep going to unlock"}
-                        </div>
-                      </div>
-                      {milestone.unlocked && (
-                        <Badge variant="secondary" className="bg-success/20 text-success">
-                          ✓ Earned
-                        </Badge>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </div>
+      </header>
+
+      <motion.div
+        className="p-4 sm:p-6 space-y-6 max-w-5xl mx-auto"
+        variants={container}
+        initial="hidden"
+        animate="visible"
+      >
+        {/* ── Stat Cards ── */}
+        <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {statCards.map(({ label, value, icon: Icon, color }) => (
+            <div key={label} className="stat-card">
+              <div className="flex items-start justify-between mb-3">
+                <p className="text-xs font-medium uppercase tracking-wider" style={{ color: "#6B6380" }}>{label}</p>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${color}18` }}>
+                  <Icon className="w-4 h-4" style={{ color }} />
+                </div>
+              </div>
+              <p className="font-outfit font-bold text-2xl sm:text-3xl" style={{ color }}>
+                {loading ? "—" : value}
+              </p>
+            </div>
+          ))}
+        </motion.div>
+
+        {/* ── Weekly Chart ── */}
+        <motion.div
+          variants={itemVariants}
+          className="rounded-2xl p-5 sm:p-6"
+          style={{ background: "rgba(28,25,41,0.8)", border: "1px solid rgba(255,255,255,0.07)" }}
+        >
+          <div className="flex items-center gap-3 mb-5">
+            <BarChart3 className="w-5 h-5 text-gold-royal" />
+            <h2 className="font-outfit font-semibold text-lg text-foreground">Weekly Progress</h2>
+          </div>
+          {weeklyData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={weeklyData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#D4A846" stopOpacity={0.25} />
+                    <stop offset="100%" stopColor="#9B6DFF" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                <XAxis dataKey="week" tick={{ fill: "#6B6380", fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: "#6B6380", fontSize: 11 }} axisLine={false} tickLine={false} />
+                <Tooltip content={customTooltip} />
+                <Area
+                  type="monotone"
+                  dataKey="completion"
+                  stroke="#D4A846"
+                  strokeWidth={2.5}
+                  fill="url(#areaGrad)"
+                  dot={{ fill: "#D4A846", r: 4, strokeWidth: 0 }}
+                  activeDot={{ fill: "#E8C05A", r: 6, strokeWidth: 0 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[220px] flex flex-col items-center justify-center">
+              <BarChart3 className="w-10 h-10 mb-3 opacity-20" style={{ color: "#D4A846" }} />
+              <p className="text-sm" style={{ color: "#6B6380" }}>Complete habits to see your weekly data</p>
+            </div>
+          )}
+        </motion.div>
+
+        {/* ── Activity Heatmap ── */}
+        <motion.div
+          variants={itemVariants}
+          className="rounded-2xl p-5 sm:p-6"
+          style={{ background: "rgba(28,25,41,0.8)", border: "1px solid rgba(255,255,255,0.07)" }}
+        >
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-3">
+              <Calendar className="w-5 h-5 text-gold-royal" />
+              <h2 className="font-outfit font-semibold text-lg text-foreground">Activity Heatmap</h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs" style={{ color: "#6B6380" }}>Less</span>
+              {["rgba(39,35,54,0.8)", "rgba(74,123,247,0.3)", "rgba(155,109,255,0.45)", "rgba(155,109,255,0.75)", "#D4A846"].map((c, i) => (
+                <div key={i} className="w-3 h-3 rounded-sm" style={{ background: c }} />
+              ))}
+              <span className="text-xs" style={{ color: "#6B6380" }}>More</span>
+            </div>
+          </div>
+
+          {/* Day labels */}
+          <div className="grid grid-cols-7 gap-1.5 mb-1">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+              <p key={d} className="text-center text-[9px]" style={{ color: "#6B6380" }}>{d}</p>
+            ))}
+          </div>
+
+          {/* Grid */}
+          <div className="grid grid-cols-7 gap-1.5">
+            {heatmapCells.map((cell, i) => (
+              <div
+                key={i}
+                title={`${cell.date.toLocaleDateString()}: ${cell.count} completions`}
+                className="aspect-square rounded-sm transition-smooth hover:scale-110 cursor-default"
+                style={{
+                  background: heatColor(cell.count, cell.inRange),
+                  outline: cell.isToday ? "2px solid #D4A846" : "none",
+                  outlineOffset: "1px",
+                  opacity: cell.inRange ? 1 : 0.25,
+                }}
+              />
+            ))}
+          </div>
+
+          {daily.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+              {[
+                { label: "Total Completions", val: daily.reduce((s, d) => s + d.count, 0), color: "#34D399" },
+                { label: "Active Days", val: daily.filter((d) => d.count > 0).length, color: "#4A7BF7" },
+                { label: "Consistency", val: `${Math.round((daily.filter((d) => d.count > 0).length / Math.max(daily.length, 1)) * 100)}%`, color: "#9B6DFF" },
+                { label: "Best Day", val: Math.max(...daily.map((d) => d.count), 0), color: "#D4A846" },
+              ].map(({ label, val, color }) => (
+                <div key={label} className="text-center">
+                  <p className="font-outfit font-bold text-xl" style={{ color }}>{val}</p>
+                  <p className="text-xs mt-0.5" style={{ color: "#6B6380" }}>{label}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </motion.div>
+
+        {/* ── Top Habits + Milestones ── */}
+        <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {/* Top Habits */}
+          <div
+            className="rounded-2xl p-5"
+            style={{ background: "rgba(28,25,41,0.8)", border: "1px solid rgba(255,255,255,0.07)" }}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <Award className="w-5 h-5" style={{ color: "#34D399" }} />
+              <h2 className="font-outfit font-semibold text-base text-foreground">Top Habits</h2>
+            </div>
+            {topHabits.length === 0 ? (
+              <div className="text-center py-8">
+                <Target className="w-10 h-10 mx-auto mb-3 opacity-20 text-gold-royal" />
+                <p className="text-sm" style={{ color: "#6B6380" }}>No habits to analyze yet</p>
+                <button
+                  onClick={() => navigate("/add-habit")}
+                  className="mt-4 px-4 py-2 rounded-lg text-sm font-medium transition-smooth hover:opacity-80"
+                  style={{ background: "rgba(212,168,70,0.1)", color: "#D4A846", border: "1px solid rgba(212,168,70,0.2)" }}
+                >
+                  <Plus className="w-3.5 h-3.5 inline mr-1" />Create Habit
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {topHabits.slice(0, 5).map((h, i) => (
+                  <div
+                    key={h.habit_id}
+                    className="flex items-center gap-3 p-3 rounded-xl transition-smooth hover:bg-white/3"
+                    style={{ border: "1px solid rgba(255,255,255,0.04)" }}
+                  >
+                    <div
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold font-outfit flex-shrink-0"
+                      style={{ background: i < 3 ? "rgba(212,168,70,0.15)" : "rgba(255,255,255,0.05)", color: i < 3 ? "#D4A846" : "#6B6380" }}
+                    >
+                      {i + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{h.habit_name}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <Flame className="w-3 h-3" style={{ color: "#FBBF24" }} />
+                        <span className="text-xs" style={{ color: "#6B6380" }}>{h.current_streak}d streak</span>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="font-outfit font-bold text-sm" style={{ color: "#34D399" }}>
+                        {Math.round(h.completion_rate)}%
+                      </p>
+                      <p className="text-[10px]" style={{ color: "#6B6380" }}>done</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Milestones */}
+          <div
+            className="rounded-2xl p-5"
+            style={{ background: "rgba(28,25,41,0.8)", border: "1px solid rgba(255,255,255,0.07)" }}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <Crown className="w-5 h-5 text-gold-royal" />
+              <h2 className="font-outfit font-semibold text-base text-foreground">Milestones</h2>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {milestones.map((m) => (
+                <div
+                  key={m.title}
+                  className="achievement-badge"
+                  style={m.unlocked ? {} : {}}
+                  data-unlocked={m.unlocked}
+                >
+                  <div className={`text-2xl mb-2 transition-smooth ${m.unlocked ? "animate-float" : ""}`}>
+                    {m.unlocked ? m.icon : "🔒"}
+                  </div>
+                  <p
+                    className="text-xs font-medium leading-tight"
+                    style={{ color: m.unlocked ? "#D4A846" : "#6B6380" }}
+                  >
+                    {m.title}
+                  </p>
+                  {m.unlocked && (
+                    <p className="text-[10px] mt-1" style={{ color: "#34D399" }}>Unlocked! ✓</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }

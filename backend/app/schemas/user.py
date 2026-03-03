@@ -17,6 +17,7 @@ class UserLogin(BaseModel):
 class User(UserBase):
     id: int
     is_active: bool
+    rest_tokens_available: int
     created_at: datetime
     updated_at: datetime
     name: Optional[str] = None

@@ -2,13 +2,14 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func, extract
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.database import get_db
 from app.models.user import User
 from app.models.habit import Habit, HabitLog
 from app.models.habit_summary import HabitSummary
 from app.schemas.habit import HabitCreate, HabitUpdate, Habit as HabitSchema, HabitLogCreate, HabitLog as HabitLogSchema
 from app.auth import get_current_user
+from app.services.consistency import calculate_7_day_consistency, get_local_today, check_and_award_rest_tokens
 
 router = APIRouter(prefix="/habits", tags=["habits"])
 
@@ -22,19 +23,16 @@ def get_habits(
         and_(Habit.user_id == current_user.id, Habit.is_active == True)
     ).order_by(Habit.created_at.desc()).all()
     
-    # Calculate current week data and streaks for each habit
-    today = datetime.now().date()
-    # Find Monday of current week
-    days_since_monday = today.weekday()  # Monday = 0
+    today = get_local_today()
+    days_since_monday = today.weekday()
     monday = today - timedelta(days=days_since_monday)
     
     for habit in habits:
-        # Calculate current week completion
-        current_week = [False] * 7  # Monday to Sunday
+        current_week = [False] * 7
         
         for i in range(7):
             check_date = monday + timedelta(days=i)
-            if check_date <= today:  # Don't check future dates
+            if check_date <= today:
                 log_exists = db.query(HabitLog).filter(
                     HabitLog.habit_id == habit.id,
                     HabitLog.user_id == current_user.id,
@@ -43,16 +41,14 @@ def get_habits(
                 
                 current_week[i] = log_exists is not None
         
-        # Update habit's currentWeek field
         habit.currentWeek = current_week
         
-        # Calculate and update streak
-        calculated_streak = calculate_habit_streak(db, habit.id, current_user.id)
-        habit.streak = calculated_streak
+        # Calculate and update 7-day consistency
+        consistency_score = calculate_7_day_consistency(db, habit.id, current_user.id)
+        habit.consistency_score = consistency_score
         
-        # Update the database with new values
         db.query(Habit).filter(Habit.id == habit.id).update({
-            "streak": calculated_streak,
+            "consistency_score": consistency_score,
             "currentWeek": current_week
         })
     
@@ -68,7 +64,8 @@ def create_habit(
     """Create a new habit"""
     db_habit = Habit(
         **habit.dict(),
-        user_id=current_user.id
+        user_id=current_user.id,
+        consistency_score=0.0
     )
     db.add(db_habit)
     db.commit()
@@ -93,8 +90,8 @@ def get_habit(
             detail="Habit not found"
         )
     
-    # Calculate streak
-    habit.streak = calculate_habit_streak(db, habit.id, current_user.id)
+    # Calculate consistency
+    habit.consistency_score = calculate_7_day_consistency(db, habit.id, current_user.id)
     
     return habit
 
@@ -194,6 +191,7 @@ def log_habit_completion(
     db.commit()
     db.refresh(db_log)
     update_habit_summary(db, current_user.id, habit_id, habit_log.completed_date.date())
+    check_and_award_rest_tokens(db, current_user.id, habit_id)
     return db_log
 
 def update_habit_summary(db: Session, user_id: int, habit_id: int, summary_date: datetime.date):
@@ -206,67 +204,17 @@ def update_habit_summary(db: Session, user_id: int, habit_id: int, summary_date:
     ).order_by(HabitLog.completed_date).all()
 
     if not all_logs:
-        # No logs, so no summary
         return
 
-    # Calculate total completions
     total_completions = len(all_logs)
 
-    # Calculate current streak and longest streak
-    current_streak = 0
-    longest_streak = 0
-    temp_streak = 0
-    
-    # Sort logs by date to calculate streaks correctly
-    sorted_logs = sorted(all_logs, key=lambda log: log.completed_date.date())
-    
-    # Convert logs to a set of dates for efficient lookup
-    logged_dates = {log.completed_date.date() for log in sorted_logs}
+    # Calculate 7-day rolling consistency score
+    consistency_score = calculate_7_day_consistency(db, habit_id, user_id)
 
-    # Calculate current streak
-    today = datetime.now().date()
-    date_to_check = today
-    while date_to_check in logged_dates:
-        current_streak += 1
-        date_to_check -= timedelta(days=1)
+    db.query(Habit).filter(Habit.id == habit_id).update({
+        "consistency_score": consistency_score
+    })
 
-    # Calculate longest streak
-    if sorted_logs:
-        first_log_date = sorted_logs[0].completed_date.date()
-        last_log_date = sorted_logs[-1].completed_date.date()
-        
-        date_range = [first_log_date + timedelta(days=i) for i in range((last_log_date - first_log_date).days + 1)]
-        
-        for date in date_range:
-            if date in logged_dates:
-                temp_streak += 1
-            else:
-                longest_streak = max(longest_streak, temp_streak)
-                temp_streak = 0
-        longest_streak = max(longest_streak, temp_streak) # Check for streak at the end
-
-    # Calculate completion rate (simple average for now, can be refined)
-    # For a more accurate completion rate, we'd need to know the habit's frequency
-    # For now, let's assume it's based on total logs vs. days since habit creation
-    # This needs to be refined based on habit frequency (e.g., daily, weekly, specific days)
-    # For simplicity, let's calculate based on logs in the last 30 days or since habit creation
-    
-    # For now, let's calculate completion rate based on the number of logs vs. the number of days the habit has been active
-    # This is a placeholder and needs to be improved with habit frequency logic
-    
-    # Get habit creation date
-    habit_obj = db.query(Habit).filter(Habit.id == habit_id).first()
-    if habit_obj:
-        habit_creation_date = habit_obj.created_at.date()
-        days_active = (summary_date - habit_creation_date).days + 1
-        if days_active > 0:
-            completion_rate = (total_completions / days_active) * 100
-        else:
-            completion_rate = 0
-    else:
-        completion_rate = 0 # Should not happen if habit_id is valid
-
-    # Check if a summary for this date and habit already exists
     existing_summary = db.query(HabitSummary).filter(
         and_(
             HabitSummary.user_id == user_id,
@@ -276,20 +224,14 @@ def update_habit_summary(db: Session, user_id: int, habit_id: int, summary_date:
     ).first()
 
     if existing_summary:
-        # Update existing summary
-        existing_summary.completion_rate = completion_rate
-        existing_summary.current_streak = current_streak
-        existing_summary.longest_streak = longest_streak
+        existing_summary.consistency_score = consistency_score
         existing_summary.total_completions = total_completions
     else:
-        # Create new summary
         new_summary = HabitSummary(
             user_id=user_id,
             habit_id=habit_id,
             summary_date=summary_date,
-            completion_rate=completion_rate,
-            current_streak=current_streak,
-            longest_streak=longest_streak,
+            consistency_score=consistency_score,
             total_completions=total_completions
         )
         db.add(new_summary)
@@ -413,26 +355,3 @@ def delete_habit_log_by_date(
     update_habit_summary(db, current_user.id, habit_id, log_date)
 
     return {"message": "Habit log deleted successfully"}
-
-def calculate_habit_streak(db: Session, habit_id: int, user_id: int) -> int:
-    """Calculate current streak for a habit"""
-    today = datetime.now().date()
-    streak = 0
-    current_date = today
-    
-    while True:
-        log = db.query(HabitLog).filter(
-            and_(
-                HabitLog.habit_id == habit_id,
-                HabitLog.user_id == user_id,
-                func.date(HabitLog.completed_date) == current_date
-            )
-        ).first()
-        
-        if log:
-            streak += 1
-            current_date -= timedelta(days=1)
-        else:
-            break
-    
-    return streak

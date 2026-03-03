@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
 from app.config import settings
 from app.database import engine, Base
-from app.routers import auth, habits, summary, users
+from app.routers import auth, habits, summary, users, identities
 
 # Create database tables
 try:
@@ -50,6 +50,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth.router)
+app.include_router(identities.router)
 app.include_router(habits.router)
 app.include_router(summary.router)
 app.include_router(users.router)

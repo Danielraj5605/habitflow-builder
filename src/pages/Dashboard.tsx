@@ -1,276 +1,325 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Target, TrendingUp, Flame, Calendar } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { Plus, Target, TrendingUp, Flame, Calendar, Crown, CheckCircle2, Sun, Sunset, Moon, Star } from "lucide-react";
+import { motion } from "framer-motion";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useHabits } from "@/contexts/HabitContext";
+
+const motivationalQuotes = [
+  { text: "We are what we repeatedly do. Excellence is not an act, but a habit.", author: "Aristotle" },
+  { text: "You do not rise to the level of your goals. You fall to the level of your systems.", author: "James Clear" },
+  { text: "Small steps every day lead to massive results over time.", author: "HabitFlow" },
+  { text: "The secret of your future is hidden in your daily routine.", author: "Mike Murdock" },
+  { text: "Success is the sum of small efforts, repeated day in and day out.", author: "Robert Collier" },
+];
+
+const TIME_GROUPS = [
+  { label: "Morning", icon: Sun, color: "#FBBF24", range: "All Habits" },
+];
+
+function CircularProgress({ value, size = 120 }: { value: number; size?: number }) {
+  const radius = (size - 16) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (value / 100) * circumference;
+
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="rotate-[-90deg]">
+        <defs>
+          <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#D4A846" />
+            <stop offset="100%" stopColor="#9B6DFF" />
+          </linearGradient>
+        </defs>
+        <circle
+          cx={size / 2} cy={size / 2} r={radius}
+          fill="none"
+          stroke="rgba(39,35,54,1)"
+          strokeWidth="10"
+        />
+        <circle
+          cx={size / 2} cy={size / 2} r={radius}
+          fill="none"
+          stroke="url(#ringGrad)"
+          strokeWidth="10"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          style={{ transition: "stroke-dashoffset 1s cubic-bezier(0.4,0,0.2,1)", filter: "drop-shadow(0 0 6px rgba(212,168,70,0.5))" }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="font-outfit font-bold text-gradient-gold" style={{ fontSize: size > 100 ? "1.5rem" : "1.1rem" }}>
+          {value}%
+        </span>
+        <span className="text-xs" style={{ color: "#6B6380" }}>today</span>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ icon: Icon, label, value, sub, color }: {
+  icon: any; label: string; value: string | number; sub?: string; color: string;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="stat-card"
+    >
+      <div className="flex items-start justify-between mb-3">
+        <p className="text-xs font-medium uppercase tracking-wider" style={{ color: "#6B6380" }}>{label}</p>
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${color}18` }}>
+          <Icon className="w-4 h-4" style={{ color }} />
+        </div>
+      </div>
+      <p className="font-outfit font-bold text-3xl" style={{ color }}>{value}</p>
+      {sub && <p className="text-xs mt-1" style={{ color: "#6B6380" }}>{sub}</p>}
+    </motion.div>
+  );
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { habits, toggleHabitDay } = useHabits();
-  const [userName] = useState("Daniel");
-  const [currentDate] = useState(new Date().toLocaleDateString('en-US', { 
-    weekday: 'long', 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
-  }));
-  
-  // Get current day of week (0 = Sunday, 1 = Monday, etc.)
+
   const currentDayIndex = new Date().getDay();
-  // Convert to Monday = 0 format (since our week starts with Monday)
   const todayIndex = currentDayIndex === 0 ? 6 : currentDayIndex - 1;
 
-  const motivationalQuotes = [
-    "One day at a time.",
-    "Progress, not perfection.",
-    "Small steps lead to big changes.",
-    "You're building a better you.",
-    "Consistency beats intensity.",
-  ];
+  const userName = localStorage.getItem("userName") || "Daniel";
 
-  const [dailyQuote] = useState(
-    motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)]
-  );
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
+  const greetIcon = hour < 12 ? "☀️" : hour < 17 ? "🌤️" : "🌙";
 
-  // Calculate real stats from habits data
-  const stats = {
-    habitsCreated: habits.length,
-    weeklyCompletion: habits.length > 0 ? Math.round(
-      (habits.reduce((acc, habit) => acc + habit.currentWeek.filter(Boolean).length, 0) / 
-       (habits.length * 7)) * 100
-    ) : 0,
-    currentStreak: habits.length > 0 ? Math.max(...habits.map(h => h.streak)) : 0,
-    todayCompleted: habits.filter(habit => habit.currentWeek[todayIndex]).length,
-    todayTotal: habits.length,
+  const currentDate = new Date().toLocaleDateString("en-US", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
+
+  const quote = motivationalQuotes[new Date().getDay() % motivationalQuotes.length];
+
+  const todaysHabits = habits.filter((h) => h.isActive);
+  const completedToday = todaysHabits.filter((h) => h.currentWeek[todayIndex]).length;
+  const totalToday = todaysHabits.length;
+  const progressPct = totalToday > 0 ? Math.round((completedToday / totalToday) * 100) : 0;
+
+  const maxStreak = habits.length > 0 ? Math.max(...habits.map((h) => h.streak)) : 0;
+  const avgConsistency = habits.length > 0
+    ? Math.round(habits.reduce((a, h) => a + h.consistencyScore, 0) / habits.length)
+    : 0;
+
+  const handleToggle = (habitId: number) => toggleHabitDay(habitId, todayIndex);
+
+  const containerVariants = {
+    hidden: {},
+    visible: { transition: { staggerChildren: 0.08 } },
   };
-  
-  // Filter habits for today based on frequency and current day
-  const getTodaysHabits = () => {
-    return habits.filter(habit => {
-      // For now, show all active habits as today's habits
-      // You can modify this logic based on your frequency requirements
-      return habit.isActive;
-    });
-  };
-  
-  const todaysHabits = getTodaysHabits();
-
-  const handleToggleHabit = (habitId: number) => {
-    toggleHabitDay(habitId, todayIndex);
+  const itemVariants = {
+    hidden: { opacity: 0, y: 16 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" as const } },
   };
 
   return (
-    <div className="min-h-screen">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-border/50 sticky top-0 z-40">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-4">
-            <SidebarTrigger />
+    <div className="min-h-screen bg-obsidian-night">
+      {/* ── Page Header ── */}
+      <header className="page-header sticky top-0 z-40">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4">
+          <div className="flex items-center gap-3">
+            <SidebarTrigger className="hidden md:flex text-muted-foreground hover:text-gold-royal transition-smooth" />
             <div>
-              <h1 className="text-2xl font-poppins font-bold text-foreground">
-                Welcome back, {userName}! 👋
+              <h1 className="font-outfit font-bold text-lg sm:text-2xl leading-tight text-foreground">
+                {greetIcon} {greeting}, {userName}!
               </h1>
-              <p className="text-sm text-muted-foreground">{currentDate}</p>
+              <p className="text-xs sm:text-sm" style={{ color: "#6B6380" }}>{currentDate}</p>
             </div>
           </div>
-          <Button 
-            variant="floating" 
-            size="icon" 
-            className="relative"
+          <button
             onClick={() => navigate("/add-habit")}
+            className="btn-gold w-10 h-10 rounded-full flex items-center justify-center"
           >
-            <Plus className="w-5 h-5" />
-          </Button>
+            <Plus className="w-5 h-5" style={{ color: "#0A0A0F" }} />
+          </button>
         </div>
       </header>
 
-      <div className="p-6 space-y-8 max-w-7xl mx-auto">
-        {/* Motivational Quote */}
-        <Card className="bg-gradient-hero text-white border-0 shadow-glow animate-fade-in-up">
-          <CardContent className="p-8 text-center">
-            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Target className="w-6 h-6 text-white" />
-            </div>
-            <h2 className="text-2xl font-poppins font-semibold mb-2">
-              "{dailyQuote}"
-            </h2>
-            <p className="text-white/80">
-              Keep building those amazing habits, one day at a time.
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="shadow-soft hover:shadow-medium transition-smooth">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Habits Created
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <span className="text-3xl font-bold text-primary">
-                  {stats.habitsCreated}
-                </span>
-                <Target className="w-8 h-8 text-primary/60" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-soft hover:shadow-medium transition-smooth">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Weekly Completion
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-3xl font-bold text-success">
-                    {stats.weeklyCompletion}%
-                  </span>
-                  <TrendingUp className="w-8 h-8 text-success/60" />
-                </div>
-                <Progress value={stats.weeklyCompletion} className="h-2" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-soft hover:shadow-medium transition-smooth">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Current Streak
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <span className="text-3xl font-bold text-warning">
-                  {stats.currentStreak}
-                </span>
-                <Flame className="w-8 h-8 text-warning streak-flame" />
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                days in a row
+      <motion.div
+        className="p-4 sm:p-6 space-y-6 max-w-5xl mx-auto"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        {/* ── Hero: Progress Ring + Quote ── */}
+        <motion.div variants={itemVariants} className="hero-banner p-5 sm:p-7">
+          <div className="flex flex-col sm:flex-row items-center gap-6">
+            <CircularProgress value={progressPct} size={130} />
+            <div className="text-center sm:text-left flex-1">
+              <p className="font-outfit font-bold text-xl sm:text-2xl text-foreground mb-1">
+                {completedToday < totalToday
+                  ? `${totalToday - completedToday} habit${totalToday - completedToday > 1 ? "s" : ""} remaining`
+                  : totalToday === 0 ? "Add your first habit!"
+                    : "🎉 All done for today!"}
               </p>
-            </CardContent>
-          </Card>
+              <p className="text-sm italic mb-3" style={{ color: "#B8B0CC" }}>
+                "{quote.text}"
+              </p>
+              <p className="text-xs" style={{ color: "#6B6380" }}>— {quote.author}</p>
+            </div>
+          </div>
+        </motion.div>
 
-          <Card className="shadow-soft hover:shadow-medium transition-smooth">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Today's Progress
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-3xl font-bold text-primary">
-                    {stats.todayCompleted}/{stats.todayTotal}
-                  </span>
-                  <Calendar className="w-8 h-8 text-primary/60" />
-                </div>
-                <Progress 
-                  value={(stats.todayCompleted / stats.todayTotal) * 100} 
-                  className="h-2" 
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* ── Stat Cards ── */}
+        <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <StatCard icon={Target} label="Total Habits" value={totalToday} color="#4A7BF7" />
+          <StatCard icon={TrendingUp} label="Avg Consistency" value={`${avgConsistency}%`} color="#34D399" sub="all habits" />
+          <StatCard icon={Flame} label="Best Streak" value={`${maxStreak}d`} color="#FBBF24" sub="days in a row" />
+          <StatCard icon={Calendar} label="Today" value={`${completedToday}/${totalToday}`} color="#D4A846" sub="completed" />
+        </motion.div>
 
-        {/* Today's Habits */}
-        <Card className="shadow-medium">
-          <CardHeader>
-            <CardTitle className="font-poppins text-xl">Today's Habits</CardTitle>
-            <CardDescription>
-              {habits.length === 0 
-                ? "Start building better habits today!" 
-                : todaysHabits.length === 0 
-                  ? "No habits scheduled for today." 
-                  : "Keep up the great work! You're doing amazing."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {habits.length === 0 ? (
-              // No habits in database at all
-              <div className="text-center py-12">
-                <Target className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">No habits yet!</h3>
-                <p className="text-muted-foreground mb-6">
-                  Start your journey by creating your first habit.
-                </p>
-                <Button 
-                  variant="hero" 
-                  onClick={() => navigate("/add-habit")}
-                  className="px-8"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Start a New Habit
-                </Button>
+        {/* ── Today's Habits ── */}
+        <motion.div variants={itemVariants}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-outfit font-bold text-xl text-foreground">Today's Habits</h2>
+            <button
+              onClick={() => navigate("/habits")}
+              className="text-xs font-medium transition-smooth hover:text-gold-royal"
+              style={{ color: "#6B6380" }}
+            >
+              View all →
+            </button>
+          </div>
+
+          {habits.length === 0 ? (
+            <div
+              className="rounded-2xl p-10 text-center"
+              style={{ background: "rgba(28,25,41,0.6)", border: "1px solid rgba(255,255,255,0.06)" }}
+            >
+              <div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                style={{ background: "linear-gradient(135deg, rgba(212,168,70,0.15), rgba(155,109,255,0.15))" }}
+              >
+                <Crown className="w-8 h-8 text-gold-royal" />
               </div>
-            ) : todaysHabits.length === 0 ? (
-              // Has habits but none for today
-              <div className="text-center py-8">
-                <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground text-lg">
-                  No habits for today
-                </p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Enjoy your rest day or add a new habit!
-                </p>
-                <Button 
-                  variant="outline" 
-                  onClick={() => navigate("/add-habit")}
-                  className="mt-4"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Habit
-                </Button>
-              </div>
-            ) : (
-              // Show today's habits
-              <div className="space-y-4">
-                {todaysHabits.map((habit) => {
-                  const isCompletedToday = habit.currentWeek[todayIndex];
-                  return (
-                    <div
-                      key={habit.id}
-                      className="flex items-center justify-between p-4 rounded-lg border border-border bg-card hover:bg-accent/50 transition-smooth"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Button
-                          variant={isCompletedToday ? "success" : "outline"}
-                          size="icon"
-                          className={isCompletedToday ? "habit-complete" : ""}
-                          onClick={() => handleToggleHabit(habit.id)}
-                        >
-                          {isCompletedToday && "✓"}
-                        </Button>
-                        <div>
-                          <h3 className="font-medium text-card-foreground">
-                            {habit.title || habit.name}
-                          </h3>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Flame className="w-4 h-4 text-warning" />
-                            <span>{habit.streak} day streak</span>
-                          </div>
+              <h3 className="font-outfit font-bold text-lg text-foreground mb-2">Start your royal journey</h3>
+              <p className="text-sm mb-6" style={{ color: "#6B6380" }}>
+                Create your first habit and begin building the life you deserve.
+              </p>
+              <button
+                onClick={() => navigate("/add-habit")}
+                className="btn-gold px-6 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" style={{ color: "#0A0A0F" }} />
+                <span style={{ color: "#0A0A0F" }}>Create First Habit</span>
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {todaysHabits.map((habit, i) => {
+                const done = habit.currentWeek[todayIndex];
+                return (
+                  <motion.div
+                    key={habit.id}
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.07 }}
+                    className={`habit-row ${done ? "completed" : ""}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {/* Toggle */}
+                      <button
+                        onClick={() => handleToggle(habit.id)}
+                        className={`habit-check ${done ? "checked" : ""}`}
+                      >
+                        {done && <CheckCircle2 className="w-4 h-4 text-white" />}
+                      </button>
+
+                      {/* Icon + Text */}
+                      <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                        <span className="text-xl flex-shrink-0">{habit.icon || "🎯"}</span>
+                        <div className="min-w-0">
+                          <p
+                            className={`font-medium text-sm truncate transition-smooth ${done ? "line-through opacity-60" : "text-foreground"
+                              }`}
+                          >
+                            {habit.identityStatement || habit.title || habit.name}
+                          </p>
+                          {habit.identityStatement && (
+                            <p className="text-xs truncate" style={{ color: "#6B6380" }}>
+                              {habit.title || habit.name}
+                            </p>
+                          )}
                         </div>
                       </div>
-                      <div className="text-sm text-muted-foreground">
-                        {habit.frequency}
+
+                      {/* Streak */}
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <Flame className="w-3.5 h-3.5 streak-flame" style={{ color: "#FBBF24" }} />
+                        <span className="text-sm font-bold font-mono" style={{ color: "#FBBF24" }}>
+                          {habit.streak}
+                        </span>
                       </div>
                     </div>
-                  );
-                })}
+
+                    {/* Consistency bar */}
+                    <div className="mt-2.5 ml-11">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px]" style={{ color: "#6B6380" }}>
+                          {Math.round(habit.consistencyScore)}% consistent
+                        </span>
+                        <span className="text-[10px]" style={{ color: "#6B6380" }}>
+                          {habit.frequency}
+                        </span>
+                      </div>
+                      <div className="h-1 rounded-full" style={{ background: "rgba(255,255,255,0.05)" }}>
+                        <div
+                          className="h-1 rounded-full transition-smooth"
+                          style={{
+                            width: `${habit.consistencyScore}%`,
+                            background: done
+                              ? "linear-gradient(90deg, #34D399, #059669)"
+                              : "linear-gradient(90deg, #D4A846, #9B6DFF)",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+        </motion.div>
+
+        {/* ── Level / XP Banner ── */}
+        <motion.div
+          variants={itemVariants}
+          className="rounded-2xl p-4 sm:p-5"
+          style={{
+            background: "linear-gradient(135deg, rgba(212,168,70,0.08) 0%, rgba(155,109,255,0.08) 100%)",
+            border: "1px solid rgba(212,168,70,0.15)",
+          }}
+        >
+          <div className="flex items-center gap-4">
+            <div className="text-3xl animate-float">🌱</div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-outfit font-semibold text-sm text-gradient-gold">
+                  Level 1 — Seed
+                </span>
+                <span className="text-xs font-mono" style={{ color: "#6B6380" }}>60 XP to next</span>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+              <div className="h-2 rounded-full" style={{ background: "rgba(255,255,255,0.06)" }}>
+                <div
+                  className="h-2 rounded-full"
+                  style={{
+                    width: "20%",
+                    background: "linear-gradient(90deg, #D4A846, #9B6DFF)",
+                    boxShadow: "0 0 8px rgba(212,168,70,0.4)",
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }
