@@ -29,16 +29,23 @@ dist-ssr
 .env.*
 !.env.example
 
-# Python
+# Python virtual environments
+venv/
+.venv/
+env/
 backend/venv/
-backend/__pycache__/
-backend/app/__pycache__/
-backend/app/**/__pycache__/
-__pycache__/
+backend/.venv/
+
+# Python cache files
+**/__pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.pycache
 .Python
+
+# Alembic
+backend/alembic/versions/*.pyc
 
 # Generated / build artifacts
 repomix-output.xml

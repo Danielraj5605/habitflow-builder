@@ -92,7 +92,6 @@ def get_overall_summary(
     # For now, a simplified approach or placeholder
     current_streak = 0 # This needs proper implementation based on daily logs
 
-    print(f"Fetching overall summary for user_id: {current_user.id}")
     overall_summary = {
         "total_habits": total_habits,
         "active_habits": active_habits,
@@ -101,7 +100,6 @@ def get_overall_summary(
         "longest_streak": longest_streak_overall,
         "total_completions": total_completions
     }
-    print(f"Overall summary data: {overall_summary}")
     return overall_summary
 
 

@@ -2,6 +2,11 @@ from fastapi import FastAPI
 from app.database import engine, Base
 from app.routers import auth, habits, users
 from fastapi.middleware.cors import CORSMiddleware
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 from app.config import settings
@@ -12,11 +17,11 @@ from app.routers import auth, habits, summary, users, identities
 try:
     if engine:
         Base.metadata.create_all(bind=engine)
-        print("✅ Database tables created successfully")
+        logger.info("✅ Database tables created successfully")
     else:
-        print("⚠️  Database engine not available - tables not created")
+        logger.warning("⚠️  Database engine not available - tables not created")
 except Exception as e:
-    print(f"⚠️  Database table creation failed: {e}")
+    logger.error(f"⚠️  Database table creation failed: {e}")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -38,7 +43,7 @@ cors_origins = [
     "http://127.0.0.1:8080",
     "http://127.0.0.1:8001"
 ]
-print(f"🔧 CORS Origins: {cors_origins}")
+logger.info(f"🔧 CORS Origins: {cors_origins}")
 
 app.add_middleware(
     CORSMiddleware,

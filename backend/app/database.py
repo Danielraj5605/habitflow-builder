@@ -6,8 +6,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-print(f"🔍 Connecting to MySQL...")
-print(f"🔍 Database URL: {settings.database_url[:50]}...")
+logger.info(f"🔍 Connecting to MySQL...")
+logger.info(f"🔍 Database URL: {settings.database_url[:50]}...")
 
 try:
     engine = create_engine(
@@ -23,13 +23,13 @@ try:
     with engine.connect() as conn:
         result = conn.execute(text("SELECT 'MySQL Connected', VERSION()"))
         row = result.fetchone()
-        print(f"✅ MySQL connection successful!")
-        print(f"📊 Status: {row[0]}")
-        print(f"🗄️  Version: {row[1][:60]}...")
+        logger.info(f"✅ MySQL connection successful!")
+        logger.info(f"📊 Status: {row[0]}")
+        logger.info(f"🗄️  Version: {row[1][:60]}...")
         
 except Exception as e:
-    print(f"❌ MySQL connection failed: {e}")
-    print("🚫 Database connection failed - please check your MySQL setup and connection string.")
+    logger.error(f"❌ MySQL connection failed: {e}")
+    logger.error("🚫 Database connection failed - please check your MySQL setup and connection string.")
     raise e
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
