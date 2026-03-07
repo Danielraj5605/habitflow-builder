@@ -15,91 +15,84 @@ import NotFound from "./pages/NotFound";
 import { Layout } from "@/components/Layout";
 import { HabitProvider } from "@/contexts/HabitContext";
 import { UserProvider } from "@/contexts/UserContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import PrivateRoute from "@/components/PrivateRoute";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <HabitProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
+    <ThemeProvider>
+      <UserProvider>
+        <HabitProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                {/* Public routes */}
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
 
-            {/* Protected routes */}
-            <Route path="/" element={
-              <PrivateRoute>
-                <Layout>
-                  <Dashboard />
-                </Layout>
-              </PrivateRoute>
-            } />
-            <Route path="/dashboard" element={
-              <PrivateRoute>
-                <UserProvider>
-                  <Layout>
-                    <Dashboard />
-                  </Layout>
-                </UserProvider>
-              </PrivateRoute>
-            } />
-            <Route path="/habits" element={
-              <PrivateRoute>
-                <UserProvider>
-                  <Layout>
-                    <HabitTracker />
-                  </Layout>
-                </UserProvider>
-              </PrivateRoute>
-            } />
-            <Route path="/add-habit" element={
-              <PrivateRoute>
-                <UserProvider>
-                  <Layout>
-                    <AddHabit />
-                  </Layout>
-                </UserProvider>
-              </PrivateRoute>
-            } />
-            <Route path="/summary" element={
-              <PrivateRoute>
-                <UserProvider>
-                  <Layout>
-                    <Summary />
-                  </Layout>
-                </UserProvider>
-              </PrivateRoute>
-            } />
-            <Route path="/settings" element={
-              <PrivateRoute>
-                <UserProvider>
-                  <Layout>
-                    <Settings />
-                  </Layout>
-                </UserProvider>
-              </PrivateRoute>
-            } />
-            <Route path="/account" element={
-              <PrivateRoute>
-                <UserProvider>
-                  <Layout>
-                    <Account />
-                  </Layout>
-                </UserProvider>
-              </PrivateRoute>
-            } />
+                {/* Protected routes */}
+                <Route path="/" element={
+                  <PrivateRoute>
+                    <Layout>
+                      <Dashboard />
+                    </Layout>
+                  </PrivateRoute>
+                } />
+                <Route path="/dashboard" element={
+                  <PrivateRoute>
+                    <Layout>
+                      <Dashboard />
+                    </Layout>
+                  </PrivateRoute>
+                } />
+                <Route path="/habits" element={
+                  <PrivateRoute>
+                    <Layout>
+                      <HabitTracker />
+                    </Layout>
+                  </PrivateRoute>
+                } />
+                <Route path="/add-habit" element={
+                  <PrivateRoute>
+                    <Layout>
+                      <AddHabit />
+                    </Layout>
+                  </PrivateRoute>
+                } />
+                <Route path="/summary" element={
+                  <PrivateRoute>
+                    <Layout>
+                      <Summary />
+                    </Layout>
+                  </PrivateRoute>
+                } />
+                <Route path="/settings" element={
+                  <PrivateRoute>
+                    <Layout>
+                      <Settings />
+                    </Layout>
+                  </PrivateRoute>
+                } />
+                <Route path="/account" element={
+                  <PrivateRoute>
+                    <Layout>
+                      <Account />
+                    </Layout>
+                  </PrivateRoute>
+                } />
 
-            {/* Catch-all route */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </HabitProvider>
-    </TooltipProvider>
+                {/* Catch-all route */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </HabitProvider>
+      </UserProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

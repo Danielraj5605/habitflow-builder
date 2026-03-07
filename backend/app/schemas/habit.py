@@ -26,11 +26,13 @@ class HabitUpdate(BaseModel):
     identity_id: Optional[int] = None
     currentWeek: Optional[List[bool]] = None
     consistency_score: Optional[float] = None
+    streak: Optional[int] = None
 
 class Habit(HabitBase):
     id: int
     user_id: int
     consistency_score: float = 0.0
+    streak: int = 0
     currentWeek: List[bool] = []
     created_at: datetime
     updated_at: datetime

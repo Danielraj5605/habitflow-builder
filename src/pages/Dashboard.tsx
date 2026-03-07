@@ -27,14 +27,14 @@ function CircularProgress({ value, size = 120 }: { value: number; size?: number 
       <svg width={size} height={size} className="rotate-[-90deg]">
         <defs>
           <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#D4A846" />
-            <stop offset="100%" stopColor="#9B6DFF" />
+            <stop offset="0%" stopColor="hsl(var(--primary))" />
+            <stop offset="100%" stopColor="hsl(var(--accent))" />
           </linearGradient>
         </defs>
         <circle
           cx={size / 2} cy={size / 2} r={radius}
           fill="none"
-          stroke="rgba(39,35,54,1)"
+          stroke="hsl(var(--muted)/0.3)"
           strokeWidth="10"
         />
         <circle
@@ -45,14 +45,15 @@ function CircularProgress({ value, size = 120 }: { value: number; size?: number 
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
-          style={{ transition: "stroke-dashoffset 1s cubic-bezier(0.4,0,0.2,1)", filter: "drop-shadow(0 0 6px rgba(212,168,70,0.5))" }}
+          className="transition-all duration-1000 ease-in-out"
+          style={{ filter: "drop-shadow(0 0 6px hsl(var(--primary)/0.5))" }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="font-outfit font-bold text-gradient-gold" style={{ fontSize: size > 100 ? "1.5rem" : "1.1rem" }}>
           {value}%
         </span>
-        <span className="text-xs" style={{ color: "#6B6380" }}>today</span>
+        <span className="text-[10px] font-bold uppercase tracking-tighter text-muted-foreground">today</span>
       </div>
     </div>
   );
@@ -65,16 +66,16 @@ function StatCard({ icon: Icon, label, value, sub, color }: {
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      className="stat-card"
+      className="stat-card bg-card border border-border/50 hover:border-primary/30 group"
     >
       <div className="flex items-start justify-between mb-3">
-        <p className="text-xs font-medium uppercase tracking-wider" style={{ color: "#6B6380" }}>{label}</p>
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${color}18` }}>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground group-hover:text-primary transition-colors">{label}</p>
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110" style={{ background: `${color}18` }}>
           <Icon className="w-4 h-4" style={{ color }} />
         </div>
       </div>
-      <p className="font-outfit font-bold text-3xl" style={{ color }}>{value}</p>
-      {sub && <p className="text-xs mt-1" style={{ color: "#6B6380" }}>{sub}</p>}
+      <p className="font-outfit font-bold text-2xl sm:text-3xl" style={{ color }}>{value}</p>
+      {sub && <p className="text-[10px] mt-1 font-medium text-muted-foreground">{sub}</p>}
     </motion.div>
   );
 }
@@ -120,24 +121,24 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-obsidian-night">
+    <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
       {/* ── Page Header ── */}
-      <header className="page-header sticky top-0 z-40">
+      <header className="page-header sticky top-0 z-40 bg-background/80 backdrop-blur-lg">
         <div className="flex items-center justify-between px-4 sm:px-6 py-4">
           <div className="flex items-center gap-3">
-            <SidebarTrigger className="hidden md:flex text-muted-foreground hover:text-gold-royal transition-smooth" />
+            <SidebarTrigger className="hidden md:flex text-muted-foreground hover:text-primary transition-smooth" />
             <div>
               <h1 className="font-outfit font-bold text-lg sm:text-2xl leading-tight text-foreground">
                 {greetIcon} {greeting}, {userName}!
               </h1>
-              <p className="text-xs sm:text-sm" style={{ color: "#6B6380" }}>{currentDate}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">{currentDate}</p>
             </div>
           </div>
           <button
             onClick={() => navigate("/add-habit")}
-            className="btn-gold w-10 h-10 rounded-full flex items-center justify-center"
+            className="btn-gold w-10 h-10 rounded-full flex items-center justify-center shadow-lg"
           >
-            <Plus className="w-5 h-5" style={{ color: "#0A0A0F" }} />
+            <Plus className="w-5 h-5 text-primary-foreground" />
           </button>
         </div>
       </header>
@@ -149,40 +150,39 @@ export default function Dashboard() {
         animate="visible"
       >
         {/* ── Hero: Progress Ring + Quote ── */}
-        <motion.div variants={itemVariants} className="hero-banner p-5 sm:p-7">
-          <div className="flex flex-col sm:flex-row items-center gap-6">
-            <CircularProgress value={progressPct} size={130} />
+        <motion.div variants={itemVariants} className="hero-banner p-6 sm:p-8 bg-card border-border/50 shadow-md">
+          <div className="flex flex-col sm:flex-row items-center gap-8">
+            <CircularProgress value={progressPct} size={140} />
             <div className="text-center sm:text-left flex-1">
-              <p className="font-outfit font-bold text-xl sm:text-2xl text-foreground mb-1">
+              <p className="font-outfit font-bold text-xl sm:text-3xl mb-2">
                 {completedToday < totalToday
                   ? `${totalToday - completedToday} habit${totalToday - completedToday > 1 ? "s" : ""} remaining`
                   : totalToday === 0 ? "Add your first habit!"
                     : "🎉 All done for today!"}
               </p>
-              <p className="text-sm italic mb-3" style={{ color: "#B8B0CC" }}>
+              <p className="text-base italic mb-4 text-muted-foreground leading-relaxed">
                 "{quote.text}"
               </p>
-              <p className="text-xs" style={{ color: "#6B6380" }}>— {quote.author}</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-primary">— {quote.author}</p>
             </div>
           </div>
         </motion.div>
 
         {/* ── Stat Cards ── */}
-        <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <StatCard icon={Target} label="Total Habits" value={totalToday} color="#4A7BF7" />
-          <StatCard icon={TrendingUp} label="Avg Consistency" value={`${avgConsistency}%`} color="#34D399" sub="all habits" />
-          <StatCard icon={Flame} label="Best Streak" value={`${maxStreak}d`} color="#FBBF24" sub="days in a row" />
-          <StatCard icon={Calendar} label="Today" value={`${completedToday}/${totalToday}`} color="#D4A846" sub="completed" />
+        <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard icon={Target} label="Total Habits" value={totalToday} color="hsl(var(--info))" />
+          <StatCard icon={TrendingUp} label="Avg Consistency" value={`${avgConsistency}%`} color="hsl(var(--success))" sub="all habits" />
+          <StatCard icon={Flame} label="Best Streak" value={`${maxStreak}d`} color="hsl(var(--warning))" sub="days in a row" />
+          <StatCard icon={Calendar} label="Today" value={`${completedToday}/${totalToday}`} color="hsl(var(--primary))" sub="completed" />
         </motion.div>
 
         {/* ── Today's Habits ── */}
         <motion.div variants={itemVariants}>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-outfit font-bold text-xl text-foreground">Today's Habits</h2>
+            <h2 className="font-outfit font-bold text-xl">Today's Habits</h2>
             <button
               onClick={() => navigate("/habits")}
-              className="text-xs font-medium transition-smooth hover:text-gold-royal"
-              style={{ color: "#6B6380" }}
+              className="text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors"
             >
               View all →
             </button>
@@ -190,29 +190,28 @@ export default function Dashboard() {
 
           {habits.length === 0 ? (
             <div
-              className="rounded-2xl p-10 text-center"
-              style={{ background: "rgba(28,25,41,0.6)", border: "1px solid rgba(255,255,255,0.06)" }}
+              className="rounded-2xl p-12 text-center bg-card border border-border/50 shadow-sm"
             >
               <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                style={{ background: "linear-gradient(135deg, rgba(212,168,70,0.15), rgba(155,109,255,0.15))" }}
+                className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-glow-gold"
+                style={{ background: "linear-gradient(135deg, hsl(var(--primary)/0.15), hsl(var(--accent)/0.15))" }}
               >
-                <Crown className="w-8 h-8 text-gold-royal" />
+                <Crown className="w-10 h-10 text-primary" />
               </div>
-              <h3 className="font-outfit font-bold text-lg text-foreground mb-2">Start your royal journey</h3>
-              <p className="text-sm mb-6" style={{ color: "#6B6380" }}>
-                Create your first habit and begin building the life you deserve.
+              <h3 className="font-outfit font-bold text-xl mb-2">Start your royal journey</h3>
+              <p className="text-sm text-muted-foreground mb-8 max-w-sm mx-auto">
+                Create your first habit and begin building the life you deserve. Consistency is key.
               </p>
               <button
                 onClick={() => navigate("/add-habit")}
-                className="btn-gold px-6 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2"
+                className="btn-gold px-8 py-3 rounded-xl text-sm font-bold inline-flex items-center gap-2"
               >
-                <Plus className="w-4 h-4" style={{ color: "#0A0A0F" }} />
-                <span style={{ color: "#0A0A0F" }}>Create First Habit</span>
+                <Plus className="w-4 h-4 text-primary-foreground" />
+                <span>Create First Habit</span>
               </button>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {todaysHabits.map((habit, i) => {
                 const done = habit.currentWeek[todayIndex];
                 return (
@@ -221,9 +220,9 @@ export default function Dashboard() {
                     initial={{ opacity: 0, x: -12 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.07 }}
-                    className={`habit-row ${done ? "completed" : ""}`}
+                    className={`habit-row bg-card border border-border/50 hover:border-primary/30 group ${done ? "completed opacity-70" : ""}`}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
                       {/* Toggle */}
                       <button
                         onClick={() => handleToggle(habit.id)}
@@ -233,17 +232,17 @@ export default function Dashboard() {
                       </button>
 
                       {/* Icon + Text */}
-                      <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                        <span className="text-xl flex-shrink-0">{habit.icon || "🎯"}</span>
+                      <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                        <span className="text-2xl flex-shrink-0 group-hover:scale-110 transition-transform">{habit.icon || "🎯"}</span>
                         <div className="min-w-0">
                           <p
-                            className={`font-medium text-sm truncate transition-smooth ${done ? "line-through opacity-60" : "text-foreground"
+                            className={`font-semibold text-sm truncate transition-all ${done ? "line-through text-muted-foreground" : "text-foreground"
                               }`}
                           >
                             {habit.identityStatement || habit.title || habit.name}
                           </p>
-                          {habit.identityStatement && (
-                            <p className="text-xs truncate" style={{ color: "#6B6380" }}>
+                          {(habit.identityStatement || habit.title || habit.name) !== (habit.title || habit.name) && (
+                            <p className="text-[10px] font-bold uppercase tracking-tight text-muted-foreground">
                               {habit.title || habit.name}
                             </p>
                           )}
@@ -251,32 +250,33 @@ export default function Dashboard() {
                       </div>
 
                       {/* Streak */}
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <Flame className="w-3.5 h-3.5 streak-flame" style={{ color: "#FBBF24" }} />
-                        <span className="text-sm font-bold font-mono" style={{ color: "#FBBF24" }}>
+                      <div className="flex items-center gap-1.5 flex-shrink-0 bg-warning/10 px-2 py-1 rounded-full border border-warning/20">
+                        <Flame className="w-3.5 h-3.5 streak-flame text-warning" />
+                        <span className="text-xs font-bold font-mono text-warning">
                           {habit.streak}
                         </span>
                       </div>
                     </div>
 
                     {/* Consistency bar */}
-                    <div className="mt-2.5 ml-11">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px]" style={{ color: "#6B6380" }}>
+                    <div className="mt-4 ml-12">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                           {Math.round(habit.consistencyScore)}% consistent
                         </span>
-                        <span className="text-[10px]" style={{ color: "#6B6380" }}>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                           {habit.frequency}
                         </span>
                       </div>
-                      <div className="h-1 rounded-full" style={{ background: "rgba(255,255,255,0.05)" }}>
+                      <div className="h-1.5 rounded-full bg-muted/30 overflow-hidden">
                         <div
-                          className="h-1 rounded-full transition-smooth"
+                          className="h-full rounded-full transition-all duration-700 ease-out"
                           style={{
                             width: `${habit.consistencyScore}%`,
                             background: done
-                              ? "linear-gradient(90deg, #34D399, #059669)"
-                              : "linear-gradient(90deg, #D4A846, #9B6DFF)",
+                              ? "linear-gradient(90deg, hsl(var(--success)), #059669)"
+                              : "var(--gradient-gold)",
+                            boxShadow: !done ? "0 0 8px hsl(var(--primary)/0.3)" : "none"
                           }}
                         />
                       </div>
@@ -291,28 +291,27 @@ export default function Dashboard() {
         {/* ── Level / XP Banner ── */}
         <motion.div
           variants={itemVariants}
-          className="rounded-2xl p-4 sm:p-5"
+          className="rounded-2xl p-5 sm:p-6 border border-primary/20 shadow-sm"
           style={{
-            background: "linear-gradient(135deg, rgba(212,168,70,0.08) 0%, rgba(155,109,255,0.08) 100%)",
-            border: "1px solid rgba(212,168,70,0.15)",
+            background: "linear-gradient(135deg, hsl(var(--primary)/0.08) 0%, hsl(var(--accent)/0.08) 100%)",
           }}
         >
-          <div className="flex items-center gap-4">
-            <div className="text-3xl animate-float">🌱</div>
+          <div className="flex items-center gap-6">
+            <div className="text-4xl animate-float">🌱</div>
             <div className="flex-1">
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-outfit font-semibold text-sm text-gradient-gold">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-outfit font-bold text-base text-gradient-gold">
                   Level 1 — Seed
                 </span>
-                <span className="text-xs font-mono" style={{ color: "#6B6380" }}>60 XP to next</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">60 XP to next level</span>
               </div>
-              <div className="h-2 rounded-full" style={{ background: "rgba(255,255,255,0.06)" }}>
+              <div className="h-3 rounded-full bg-muted/30 overflow-hidden border border-border/30">
                 <div
-                  className="h-2 rounded-full"
+                  className="h-full rounded-full transition-all duration-1000 ease-out"
                   style={{
                     width: "20%",
-                    background: "linear-gradient(90deg, #D4A846, #9B6DFF)",
-                    boxShadow: "0 0 8px rgba(212,168,70,0.4)",
+                    background: "var(--gradient-gold)",
+                    boxShadow: "0 0 12px hsl(var(--primary)/0.4)",
                   }}
                 />
               </div>

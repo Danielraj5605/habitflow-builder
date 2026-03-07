@@ -9,7 +9,7 @@ from app.models.habit import Habit, HabitLog
 from app.models.habit_summary import HabitSummary
 from app.schemas.habit import HabitCreate, HabitUpdate, Habit as HabitSchema, HabitLogCreate, HabitLog as HabitLogSchema
 from app.auth import get_current_user
-from app.services.consistency import calculate_7_day_consistency, get_local_today, check_and_award_rest_tokens
+from app.services.consistency import calculate_7_day_consistency, get_local_today, check_and_award_rest_tokens, calculate_current_streak
 
 router = APIRouter(prefix="/habits", tags=["habits"])
 
@@ -43,13 +43,17 @@ def get_habits(
         
         habit.currentWeek = current_week
         
-        # Calculate and update 7-day consistency
+        # Calculate and update 7-day consistency and streak
         consistency_score = calculate_7_day_consistency(db, habit.id, current_user.id)
+        streak = calculate_current_streak(db, habit.id, current_user.id)
+        
         habit.consistency_score = consistency_score
+        habit.streak = streak
         
         db.query(Habit).filter(Habit.id == habit.id).update({
             "consistency_score": consistency_score,
-            "currentWeek": current_week
+            "currentWeek": current_week,
+            "streak": streak
         })
     
     db.commit()
@@ -65,7 +69,8 @@ def create_habit(
     db_habit = Habit(
         **habit.dict(),
         user_id=current_user.id,
-        consistency_score=0.0
+        consistency_score=0.0,
+        streak=0
     )
     db.add(db_habit)
     db.commit()
@@ -90,8 +95,9 @@ def get_habit(
             detail="Habit not found"
         )
     
-    # Calculate consistency
+    # Calculate consistency and streak
     habit.consistency_score = calculate_7_day_consistency(db, habit.id, current_user.id)
+    habit.streak = calculate_current_streak(db, habit.id, current_user.id)
     
     return habit
 
@@ -208,30 +214,43 @@ def update_habit_summary(db: Session, user_id: int, habit_id: int, summary_date:
 
     total_completions = len(all_logs)
 
-    # Calculate 7-day rolling consistency score
+    # Calculate 7-day rolling consistency score and streaks
     consistency_score = calculate_7_day_consistency(db, habit_id, user_id)
+    current_streak = calculate_current_streak(db, habit_id, user_id)
+    longest_streak = calculate_longest_streak(db, habit_id, user_id)
+    
+    # Use consistency_score as completion_rate for the daily summary
+    completion_rate = consistency_score
 
     db.query(Habit).filter(Habit.id == habit_id).update({
-        "consistency_score": consistency_score
+        "consistency_score": consistency_score,
+        "streak": current_streak
     })
 
+    # Use func.date for comparison to avoid time issues
     existing_summary = db.query(HabitSummary).filter(
         and_(
             HabitSummary.user_id == user_id,
             HabitSummary.habit_id == habit_id,
-            HabitSummary.summary_date == summary_date
+            func.date(HabitSummary.summary_date) == summary_date
         )
     ).first()
 
     if existing_summary:
         existing_summary.consistency_score = consistency_score
+        existing_summary.completion_rate = completion_rate
+        existing_summary.current_streak = current_streak
+        existing_summary.longest_streak = longest_streak
         existing_summary.total_completions = total_completions
     else:
         new_summary = HabitSummary(
             user_id=user_id,
             habit_id=habit_id,
-            summary_date=summary_date,
+            summary_date=datetime.combine(summary_date, datetime.min.time(), tzinfo=timezone.utc),
             consistency_score=consistency_score,
+            completion_rate=completion_rate,
+            current_streak=current_streak,
+            longest_streak=longest_streak,
             total_completions=total_completions
         )
         db.add(new_summary)

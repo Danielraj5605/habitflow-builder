@@ -18,6 +18,7 @@ class Habit(Base):
     icon = Column(String(50), default="🎯")
     currentWeek = Column(JSON, default=lambda: [False] * 7) # Store as JSON array of booleans
     consistency_score = Column(Float, default=0.0)
+    streak = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     

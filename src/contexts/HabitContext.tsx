@@ -121,7 +121,20 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateHabit = async (id: number, updates: Partial<Habit>) => {
-    await apiUpdateHabit(id.toString(), updates);
+    // Map camelCase to snake_case for backend
+    const apiUpdates: any = { ...updates };
+    if (updates.weeklyGoal !== undefined) apiUpdates.weekly_goal = updates.weeklyGoal;
+    if (updates.isActive !== undefined) apiUpdates.is_active = updates.isActive;
+    if (updates.identityStatement !== undefined) apiUpdates.identity_statement = updates.identityStatement;
+    if (updates.consistencyScore !== undefined) apiUpdates.consistency_score = updates.consistencyScore;
+    
+    // Remove camelCase fields to avoid sending redundant data
+    delete apiUpdates.weeklyGoal;
+    delete apiUpdates.isActive;
+    delete apiUpdates.identityStatement;
+    delete apiUpdates.consistencyScore;
+
+    await apiUpdateHabit(id.toString(), apiUpdates);
     setHabits(prev => prev.map(habit => habit.id === id ? { ...habit, ...updates } : habit));
   };
 

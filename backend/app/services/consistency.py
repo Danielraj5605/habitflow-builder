@@ -42,6 +42,19 @@ def calculate_current_streak(db: Session, habit_id: int, user_id: int) -> int:
     streak = 0
     current_date = today
     
+    # Check if logged today
+    log_today = db.query(HabitLog).filter(
+        and_(
+            HabitLog.habit_id == habit_id,
+            HabitLog.user_id == user_id,
+            func.date(HabitLog.completed_date) == today
+        )
+    ).first()
+    
+    if not log_today:
+        # If not logged today, check yesterday to see if streak is still alive
+        current_date = today - timedelta(days=1)
+    
     while True:
         log = db.query(HabitLog).filter(
             and_(
@@ -58,6 +71,38 @@ def calculate_current_streak(db: Session, habit_id: int, user_id: int) -> int:
             break
             
     return streak
+
+def calculate_longest_streak(db: Session, habit_id: int, user_id: int) -> int:
+    """Calculate the longest streak of all time for a habit."""
+    logs = db.query(HabitLog).filter(
+        and_(
+            HabitLog.habit_id == habit_id,
+            HabitLog.user_id == user_id
+        )
+    ).order_by(HabitLog.completed_date).all()
+    
+    if not logs:
+        return 0
+    
+    max_streak = 0
+    current_streak = 0
+    last_date = None
+    
+    for log in logs:
+        log_date = log.completed_date.date()
+        if last_date is None:
+            current_streak = 1
+        elif log_date == last_date + timedelta(days=1):
+            current_streak += 1
+        elif log_date == last_date:
+            continue # Same day, don't increment or break
+        else:
+            current_streak = 1
+            
+        last_date = log_date
+        max_streak = max(max_streak, current_streak)
+        
+    return max_streak
 
 def check_and_award_rest_tokens(db: Session, user_id: int, habit_id: int):
     """

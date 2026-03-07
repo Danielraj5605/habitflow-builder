@@ -52,30 +52,28 @@ export function AppSidebar() {
 
   return (
     <Sidebar
-      className="border-r"
+      className="border-r border-sidebar-border transition-colors duration-300"
       style={{
-        background: "linear-gradient(180deg, #0D0B16 0%, #0A0A0F 100%)",
-        borderColor: "rgba(255,255,255,0.06)",
+        background: "hsl(var(--sidebar-background))",
       }}
     >
       {/* ── Logo ── */}
       <SidebarHeader
-        className="p-5"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+        className="p-5 border-b border-sidebar-border"
       >
         <div className="flex items-center gap-3">
           <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: "linear-gradient(135deg, #D4A846 0%, #9B6DFF 100%)" }}
+            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg"
+            style={{ background: "var(--gradient-gold)" }}
           >
-            <Crown className="w-5 h-5" style={{ color: "#0A0A0F" }} />
+            <Crown className="w-5 h-5 text-sidebar-primary-foreground" />
           </div>
           {isExpanded && (
             <div>
               <h1 className="font-outfit font-bold text-lg text-gradient-gold">
                 HabitFlow
               </h1>
-              <p className="text-xs" style={{ color: "#6B6380" }}>
+              <p className="text-xs text-muted-foreground">
                 Build royal habits
               </p>
             </div>
@@ -83,13 +81,12 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-3 py-5 flex flex-col h-[calc(100%-5rem)]">
+      <SidebarContent className="px-3 py-5 flex flex-col h-[calc(100%-5rem)] bg-transparent">
         {/* ── Main nav ── */}
         <SidebarGroup>
           {isExpanded && (
             <SidebarGroupLabel
-              className="text-[10px] uppercase tracking-widest mb-2 px-2"
-              style={{ color: "#6B6380" }}
+              className="text-[10px] uppercase tracking-widest mb-2 px-2 text-muted-foreground"
             >
               Main
             </SidebarGroupLabel>
@@ -107,20 +104,20 @@ export function AppSidebar() {
                         end={item.url === "/"}
                         style={{
                           background: isAddHabit
-                            ? "linear-gradient(135deg, rgba(212,168,70,0.12) 0%, rgba(155,109,255,0.08) 100%)"
+                            ? "var(--gradient-gold)"
                             : active
-                              ? "rgba(212,168,70,0.1)"
+                              ? "hsl(var(--sidebar-accent))"
                               : "transparent",
                           borderLeft: active
-                            ? "2px solid #D4A846"
+                            ? "2px solid hsl(var(--sidebar-primary))"
                             : isAddHabit
-                              ? "2px solid rgba(212,168,70,0.4)"
+                              ? "2px solid transparent"
                               : "2px solid transparent",
-                          color: active
-                            ? "#D4A846"
-                            : isAddHabit
-                              ? "#D4A846"
-                              : "#B8B0CC",
+                          color: isAddHabit
+                            ? "hsl(var(--sidebar-primary-foreground))"
+                            : active
+                              ? "hsl(var(--sidebar-primary))"
+                              : "hsl(var(--sidebar-foreground))",
                           transition: "all 0.2s ease",
                           borderRadius: "0.75rem",
                           display: "flex",
@@ -131,12 +128,16 @@ export function AppSidebar() {
                           fontWeight: active ? 600 : 400,
                           fontSize: "0.875rem",
                         }}
-                        className="hover:!bg-white/5 hover:!text-[#D4A846]"
+                        className={`hover:!bg-sidebar-accent hover:!text-sidebar-primary transition-smooth ${isAddHabit ? 'shadow-glow-gold' : ''}`}
                       >
                         <item.icon
                           className="w-4 h-4 flex-shrink-0"
                           style={{
-                            color: active || isAddHabit ? "#D4A846" : "#B8B0CC",
+                            color: isAddHabit 
+                              ? "hsl(var(--sidebar-primary-foreground))" 
+                              : active 
+                                ? "hsl(var(--sidebar-primary))" 
+                                : "hsl(var(--sidebar-foreground))",
                           }}
                         />
                         {isExpanded && <span>{item.title}</span>}
@@ -153,8 +154,7 @@ export function AppSidebar() {
         <SidebarGroup className="mt-8">
           {isExpanded && (
             <SidebarGroupLabel
-              className="text-[10px] uppercase tracking-widest mb-2 px-2"
-              style={{ color: "#6B6380" }}
+              className="text-[10px] uppercase tracking-widest mb-2 px-2 text-muted-foreground"
             >
               Account
             </SidebarGroupLabel>
@@ -169,11 +169,11 @@ export function AppSidebar() {
                       <NavLink
                         to={item.url}
                         style={{
-                          background: active ? "rgba(212,168,70,0.1)" : "transparent",
+                          background: active ? "hsl(var(--sidebar-accent))" : "transparent",
                           borderLeft: active
-                            ? "2px solid #D4A846"
+                            ? "2px solid hsl(var(--sidebar-primary))"
                             : "2px solid transparent",
-                          color: active ? "#D4A846" : "#B8B0CC",
+                          color: active ? "hsl(var(--sidebar-primary))" : "hsl(var(--sidebar-foreground))",
                           transition: "all 0.2s ease",
                           borderRadius: "0.75rem",
                           display: "flex",
@@ -184,11 +184,11 @@ export function AppSidebar() {
                           fontWeight: active ? 600 : 400,
                           fontSize: "0.875rem",
                         }}
-                        className="hover:!bg-white/5 hover:!text-[#D4A846]"
+                        className="hover:!bg-sidebar-accent hover:!text-sidebar-primary"
                       >
                         <item.icon
                           className="w-4 h-4 flex-shrink-0"
-                          style={{ color: active ? "#D4A846" : "#B8B0CC" }}
+                          style={{ color: active ? "hsl(var(--sidebar-primary))" : "hsl(var(--sidebar-foreground))" }}
                         />
                         {isExpanded && <span>{item.title}</span>}
                       </NavLink>
@@ -200,10 +200,10 @@ export function AppSidebar() {
               {/* Logout */}
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  className="h-11 px-3 rounded-xl cursor-pointer hover:!bg-red-500/10"
+                  className="h-11 px-3 rounded-xl cursor-pointer hover:!bg-destructive/10"
                   style={{
                     borderLeft: "2px solid transparent",
-                    color: "#F87171",
+                    color: "hsl(var(--destructive))",
                     display: "flex",
                     alignItems: "center",
                     gap: "0.75rem",
@@ -214,7 +214,7 @@ export function AppSidebar() {
                   }}
                   onClick={handleLogout}
                 >
-                  <LogOut className="w-4 h-4 flex-shrink-0" style={{ color: "#F87171" }} />
+                  <LogOut className="w-4 h-4 flex-shrink-0" />
                   {isExpanded && <span>Logout</span>}
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -225,10 +225,9 @@ export function AppSidebar() {
         {/* ── Level badge ── */}
         {isExpanded && (
           <div
-            className="mt-auto mx-1 p-3 rounded-xl"
+            className="mt-auto mx-1 p-3 rounded-xl border border-primary/20"
             style={{
-              background: "linear-gradient(135deg, rgba(212,168,70,0.08) 0%, rgba(155,109,255,0.08) 100%)",
-              border: "1px solid rgba(212,168,70,0.15)",
+              background: "linear-gradient(135deg, hsl(var(--primary)/0.08) 0%, hsl(var(--accent)/0.08) 100%)",
             }}
           >
             <div className="flex items-center gap-2 mb-1">
@@ -237,16 +236,16 @@ export function AppSidebar() {
                 Level 1 — Seed
               </span>
             </div>
-            <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+            <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
               <div
                 className="h-full rounded-full"
                 style={{
                   width: "20%",
-                  background: "linear-gradient(90deg, #D4A846, #9B6DFF)",
+                  background: "var(--gradient-gold)",
                 }}
               />
             </div>
-            <p className="text-[10px] mt-1" style={{ color: "#6B6380" }}>
+            <p className="text-[10px] mt-1 text-muted-foreground">
               60 XP to next level
             </p>
           </div>

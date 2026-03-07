@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,13 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Bell, Moon, Globe, Clock, Download, UserCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
+import { useTheme } from "@/contexts/ThemeContext";
 
 export default function Settings() {
   const { toast } = useToast();
-  const { user, isLoading, error } = useUser();
+  const { user, isLoading } = useUser();
+  const { theme, setTheme } = useTheme();
 
   const [settings, setSettings] = useState({
-    darkMode: false,
     notifications: true,
     dailyReminder: true,
     reminderTime: "09:00",
@@ -23,7 +24,12 @@ export default function Settings() {
   });
 
   const handleSettingChange = (key: string, value: any) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
+    if (key === "darkMode") {
+      setTheme(value ? "dark" : "light");
+    } else {
+      setSettings(prev => ({ ...prev, [key]: value }));
+    }
+    
     toast({
       title: "Settings updated",
       description: "Your preferences have been saved.",
@@ -58,17 +64,17 @@ export default function Settings() {
   ];
 
   return (
-    <div className="min-h-screen bg-obsidian-night">
+    <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
       {/* Header */}
       <header className="page-header sticky top-0 z-40">
         <div className="flex items-center justify-between px-4 sm:px-6 py-4">
           <div className="flex items-center gap-3">
-            <SidebarTrigger className="hidden md:flex text-muted-foreground hover:text-gold-royal transition-smooth" />
+            <SidebarTrigger className="hidden md:flex text-muted-foreground hover:text-primary transition-smooth" />
             <div>
               <h1 className="font-outfit font-bold text-lg sm:text-2xl text-foreground">
                 Settings
               </h1>
-              <p className="text-xs sm:text-sm" style={{ color: '#6B6380' }}>
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Customize your HabitFlow experience
               </p>
             </div>
@@ -78,7 +84,7 @@ export default function Settings() {
 
       <div className="p-6 space-y-8 max-w-4xl mx-auto">
         {/* Appearance */}
-        <Card className="shadow-medium">
+        <Card className="shadow-medium border-border bg-card">
           <CardHeader>
             <CardTitle className="font-poppins text-xl flex items-center gap-3">
               <Moon className="w-6 h-6 text-primary" />
@@ -100,7 +106,7 @@ export default function Settings() {
               </div>
               <Switch
                 id="dark-mode"
-                checked={settings.darkMode}
+                checked={theme === "dark"}
                 onCheckedChange={(checked) => handleSettingChange("darkMode", checked)}
               />
             </div>

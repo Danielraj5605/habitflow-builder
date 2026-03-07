@@ -12,6 +12,8 @@ class HabitSummary(Base):
     summary_date = Column(DateTime(timezone=True), nullable=False)  # Date for which the summary is calculated
     completion_rate = Column(Float, default=0.0)
     consistency_score = Column(Float, default=0.0)
+    current_streak = Column(Integer, default=0)
+    longest_streak = Column(Integer, default=0)
     total_completions = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

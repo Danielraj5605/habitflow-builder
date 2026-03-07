@@ -1,25 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { User, Mail, Lock, LogOut, Crown, Camera } from "lucide-react";
+import { User, Mail, Lock, LogOut, Crown, Camera, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { fetchWithAuth, updateUserProfile } from "@/lib/api";
+import { fetchWithAuth, updateUserProfile, uploadProfilePhoto } from "@/lib/api";
+import { useUser } from "@/contexts/UserContext";
 import { motion } from "framer-motion";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
-
 const cardStyle = {
-  background: "linear-gradient(135deg, rgba(28,25,41,0.95) 0%, rgba(19,17,28,0.95) 100%)",
-  border: "1px solid rgba(255,255,255,0.07)",
+  background: "var(--gradient-surface)",
+  border: "1px solid var(--border)",
   borderRadius: "1rem",
   padding: "1.5rem",
 } as const;
 
 const inputStyle = {
-  background: "rgba(10,10,15,0.8)",
-  border: "1px solid rgba(255,255,255,0.08)",
+  background: "hsl(var(--input))",
+  border: "1px solid var(--border)",
   borderRadius: "0.625rem",
-  color: "#F5F0FF",
+  color: "hsl(var(--foreground))",
   outline: "none",
   transition: "all 0.2s ease",
   width: "100%",
@@ -31,31 +30,66 @@ const inputStyle = {
 export default function Account() {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user, refetch } = useUser();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [profile, setProfile] = useState({ fullName: "", email: "", joinDate: "", totalHabits: 0, completedSessions: 0 });
+  const [profile, setProfile] = useState({ fullName: "", email: "", joinDate: "", totalHabits: 0, completedSessions: 0, photoUrl: "" });
   const [pwData, setPwData] = useState({ current: "", next: "", confirm: "" });
   const [editing, setEditing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
-    fetchWithAuth(`${API_BASE_URL}/users/me`).then((d) => {
+    if (user) {
       setProfile({
-        fullName: d?.name || "Demo User",
-        email: d?.email || "",
-        joinDate: d?.created_at ? new Date(d.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long" }) : "",
-        totalHabits: d?.total_habits || 0,
-        completedSessions: d?.completed_sessions || 0,
+        fullName: user.name || "Demo User",
+        email: user.email || "",
+        joinDate: user.created_at ? new Date(user.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long" }) : "",
+        totalHabits: (user as any).total_habits || 0,
+        completedSessions: (user as any).completed_sessions || 0,
+        photoUrl: user.profile_photo_url || "",
       });
-    }).catch(() => { });
-  }, []);
+    }
+  }, [user]);
 
   const handleUpdate = async () => {
     try {
       const r = await updateUserProfile({ name: profile.fullName });
-      setProfile((p) => ({ ...p, fullName: r.name || r.fullName }));
       toast({ title: "Profile updated! 👑" });
       setEditing(false);
+      refetch();
     } catch {
       toast({ variant: "destructive", title: "Update failed" });
+    }
+  };
+
+  const handlePhotoClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Basic validation
+    if (!file.type.startsWith("image/")) {
+      toast({ variant: "destructive", title: "Only images are allowed" });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      toast({ variant: "destructive", title: "Image size must be less than 5MB" });
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      await uploadProfilePhoto(file);
+      toast({ title: "Photo uploaded! 📸" });
+      refetch();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Upload failed", description: err.message });
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -68,22 +102,22 @@ export default function Account() {
   const initials = profile.fullName.split(" ").map((n) => n[0]).join("").toUpperCase() || "?";
 
   const onFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.target.style.borderColor = "rgba(212,168,70,0.5)";
+    e.target.style.borderColor = "var(--primary)";
     e.target.style.boxShadow = "0 0 0 3px rgba(212,168,70,0.1)";
   };
   const onBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.target.style.borderColor = "rgba(255,255,255,0.08)";
+    e.target.style.borderColor = "var(--border)";
     e.target.style.boxShadow = "none";
   };
 
   return (
-    <div className="min-h-screen bg-obsidian-night">
-      <header className="page-header sticky top-0 z-40">
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="page-header sticky top-0 z-40 bg-background/80 backdrop-blur-lg">
         <div className="flex items-center gap-3 px-4 sm:px-6 py-4">
-          <SidebarTrigger className="hidden md:flex text-muted-foreground hover:text-gold-royal transition-smooth" />
+          <SidebarTrigger className="hidden md:flex text-muted-foreground hover:text-primary transition-smooth" />
           <div>
             <h1 className="font-outfit font-bold text-lg sm:text-2xl text-foreground">Account</h1>
-            <p className="text-xs sm:text-sm" style={{ color: "#6B6380" }}>Manage your profile and settings</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Manage your profile and settings</p>
           </div>
         </div>
       </header>
@@ -95,9 +129,9 @@ export default function Account() {
         transition={{ duration: 0.4 }}
       >
         {/* ── Profile Card ── */}
-        <div style={cardStyle}>
-          <div className="flex items-center gap-3 mb-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "1rem" }}>
-            <Crown className="w-5 h-5 text-gold-royal" />
+        <div style={cardStyle} className="bg-card">
+          <div className="flex items-center gap-3 mb-5 border-b border-border pb-4">
+            <Crown className="w-5 h-5 text-primary" />
             <h2 className="font-outfit font-semibold text-foreground">Profile Information</h2>
           </div>
 
@@ -105,23 +139,40 @@ export default function Account() {
           <div className="flex items-center gap-5 mb-6">
             <div className="relative">
               <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-outfit font-bold"
-                style={{ background: "linear-gradient(135deg, #D4A846 0%, #9B6DFF 100%)", color: "#0A0A0F" }}
+                className="w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-outfit font-bold overflow-hidden"
+                style={{ background: "linear-gradient(135deg, var(--primary) 0%, #9B6DFF 100%)", color: "white" }}
               >
-                {initials}
+                {profile.photoUrl ? (
+                  <img src={profile.photoUrl} alt={profile.fullName} className="w-full h-full object-cover" />
+                ) : (
+                  initials
+                )}
+                {isUploading && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-white" />
+                  </div>
+                )}
               </div>
               <button
-                className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center transition-smooth hover:opacity-80"
-                style={{ background: "rgba(28,25,41,1)", border: "1px solid rgba(212,168,70,0.3)", color: "#D4A846" }}
+                onClick={handlePhotoClick}
+                disabled={isUploading}
+                className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center transition-smooth hover:scale-110 active:scale-95 bg-card border border-primary text-primary shadow-lg"
               >
-                <Camera className="w-3 h-3" />
+                <Camera className="w-4 h-4" />
               </button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept="image/*"
+                className="hidden"
+              />
             </div>
             <div>
               <h3 className="font-outfit font-semibold text-lg text-foreground">{profile.fullName || "—"}</h3>
-              <p className="text-sm" style={{ color: "#6B6380" }}>{profile.email}</p>
+              <p className="text-sm text-muted-foreground">{profile.email}</p>
               {profile.joinDate && (
-                <p className="text-xs mt-0.5" style={{ color: "#6B6380" }}>Member since {profile.joinDate}</p>
+                <p className="text-xs mt-0.5 text-muted-foreground">Member since {profile.joinDate}</p>
               )}
             </div>
           </div>

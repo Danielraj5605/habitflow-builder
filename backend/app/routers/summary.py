@@ -9,9 +9,8 @@ from app.models.user import User
 from app.models.habit import Habit, HabitLog
 from app.models.habit_summary import HabitSummary
 from app.schemas.habit_summary import HabitSummarySchema, HabitSummaryCreate
-from app.models.habit import Habit
-from app.models.habit_summary import HabitSummary
 from app.auth import get_current_user
+from app.services.consistency import calculate_current_streak, calculate_longest_streak
 
 router = APIRouter(
     prefix="/summary",
@@ -58,47 +57,34 @@ def get_overall_summary(
     db: Session = Depends(get_db)
 ):
     """Get overall summary data for the current user"""
-    total_habits = db.query(Habit).filter(Habit.user_id == current_user.id).count()
-    active_habits = db.query(Habit).filter(and_(Habit.user_id == current_user.id, Habit.is_active == True)).count()
+    habits = db.query(Habit).filter(Habit.user_id == current_user.id).all()
+    total_habits = len(habits)
+    active_habits = len([h for h in habits if h.is_active])
 
-    # Calculate overall completion rate for the month
-    first_day_of_month = datetime.now().replace(day=1).date()
-    monthly_summaries = db.query(HabitSummary).filter(
-        and_(
-            HabitSummary.user_id == current_user.id,
-            HabitSummary.summary_date >= first_day_of_month
-        )
-    ).all()
+    # Calculate overall completion rate
+    total_consistency = sum([h.consistency_score for h in habits])
+    overall_completion_rate = total_consistency / total_habits if total_habits > 0 else 0
 
-    total_completion_rate = 0
-    if monthly_summaries:
-        total_completion_rate = sum([s.completion_rate for s in monthly_summaries]) / len(monthly_summaries)
-
-    # Calculate best streak across all habits
+    # Best streak is the max of all current streaks
+    current_streak = max([h.streak for h in habits]) if habits else 0
+    
+    # Longest streak ever across all habits
     longest_streak_overall = db.query(func.max(HabitSummary.longest_streak)).filter(
         HabitSummary.user_id == current_user.id
-    ).scalar()
-    if longest_streak_overall is None:
-        longest_streak_overall = 0
+    ).scalar() or 0
 
-    # Calculate total completions
+    # Total completions across all habits
     total_completions = db.query(func.sum(HabitSummary.total_completions)).filter(
         HabitSummary.user_id == current_user.id
-    ).scalar()
-    if total_completions is None:
-        total_completions = 0
-
-    # Calculate current streak (this is more complex and might need a dedicated function or more sophisticated query)
-    # For now, a simplified approach or placeholder
-    current_streak = 0 # This needs proper implementation based on daily logs
+    ).scalar() or 0
 
     overall_summary = {
         "total_habits": total_habits,
         "active_habits": active_habits,
-        "overall_completion_rate": round(total_completion_rate, 2),
+        "overall_completion_rate": round(overall_completion_rate, 2),
         "current_streak": current_streak,
         "longest_streak": longest_streak_overall,
-        "total_completions": total_completions
+        "total_completions": int(total_completions)
     }
     return overall_summary
 
@@ -140,34 +126,26 @@ def get_top_habits(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get top habits data for the current user"""
-    top_habits_query = db.query(
-        HabitSummary.habit_id,
-        func.avg(HabitSummary.completion_rate).label("avg_completion_rate")
-    ).filter(
-        HabitSummary.user_id == current_user.id
-    ).group_by(HabitSummary.habit_id).order_by(func.avg(HabitSummary.completion_rate).desc()).limit(5)
-
-    top_habits_ids = [item.habit_id for item in top_habits_query.all()]
+    """Get top habits data for the current user based on consistency score"""
+    top_habits = db.query(Habit).filter(
+        and_(Habit.user_id == current_user.id, Habit.is_active == True)
+    ).order_by(Habit.consistency_score.desc()).limit(5).all()
 
     result = []
-    for habit_id in top_habits_ids:
-        habit = db.query(Habit).filter(Habit.id == habit_id).first()
-        # Get the most recent HabitSummary for this habit_id and user_id
-        hs = db.query(HabitSummary).filter(
-            HabitSummary.user_id == current_user.id,
-            HabitSummary.habit_id == habit_id
+    for habit in top_habits:
+        # Get the latest summary for this habit to get longest_streak and total_completions
+        latest_summary = db.query(HabitSummary).filter(
+            and_(HabitSummary.user_id == current_user.id, HabitSummary.habit_id == habit.id)
         ).order_by(HabitSummary.summary_date.desc()).first()
-
-        if habit and hs:
-            result.append({
-                "habit_id": str(hs.habit_id),
-                "habit_name": habit.name,
-                "current_streak": hs.current_streak,
-                "longest_streak": hs.longest_streak,
-                "total_completions": hs.total_completions,
-                "completion_rate": hs.completion_rate
-            })
+        
+        result.append({
+            "habit_id": str(habit.id),
+            "habit_name": habit.name,
+            "current_streak": habit.streak,
+            "longest_streak": latest_summary.longest_streak if latest_summary else habit.streak,
+            "total_completions": latest_summary.total_completions if latest_summary else (1 if habit.streak > 0 else 0),
+            "completion_rate": habit.consistency_score
+        })
     return result
 
 @router.get("/daily-completions")

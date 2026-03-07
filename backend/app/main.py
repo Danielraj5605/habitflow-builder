@@ -1,8 +1,10 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from app.database import engine, Base
 from app.routers import auth, habits, users
 from fastapi.middleware.cors import CORSMiddleware
 import logging
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -31,6 +33,13 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# Ensure upload directory exists
+if not os.path.exists("uploads"):
+    os.makedirs("uploads")
+
+# Mount static files
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Configure CORS
 cors_origins = [

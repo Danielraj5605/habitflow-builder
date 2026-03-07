@@ -77,32 +77,16 @@ export async function deleteHabit(id: string) {
 }
 
 export const logHabitCompletion = async (habitId: string, completedDate: string) => {
-  const response = await fetch(`${API_BASE_URL}/habits/${habitId}/logs`, {
+  return fetchWithAuth(`${API_BASE_URL}/habits/${habitId}/logs`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${localStorage.getItem("token")}`,
-    },
     body: JSON.stringify({ habit_id: parseInt(habitId), completed_date: completedDate }),
   });
-  if (!response.ok) {
-    throw new Error("Failed to log habit completion");
-  }
-  return response.json();
 };
 
 export const deleteHabitLog = async (habitId: string, completedDate: string) => {
-  const response = await fetch(`${API_BASE_URL}/habits/${habitId}/logs/by-date?completed_date=${encodeURIComponent(completedDate)}`, {
-    method: "DELETE",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${localStorage.getItem("token")}`,
-    },
+  return fetchWithAuth(`${API_BASE_URL}/habits/${habitId}/logs/by-date?completed_date=${encodeURIComponent(completedDate)}`, {
+    method: "DELETE"
   });
-  if (!response.ok) {
-    throw new Error("Failed to delete habit log");
-  }
-  return response.json();
 };
 
 interface HabitUpdate {
@@ -115,32 +99,48 @@ interface HabitUpdate {
   icon?: string;
   currentWeek?: boolean[];
   streak?: number;
+  consistency_score?: number;
 }
 
 export const updateHabit = async (id: string, updates: Partial<HabitUpdate>) => {
-  const response = await fetch(`${API_BASE_URL}/habits/${id}`, {
+  return fetchWithAuth(`${API_BASE_URL}/habits/${id}`, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${localStorage.getItem("token")}`,
-    },
     body: JSON.stringify(updates),
   });
-  if (!response.ok) {
-    throw new Error("Failed to update habit");
-  }
-  return response.json();
 };
 
 export async function getMe() {
-  const response = await fetchWithAuth(`${API_BASE_URL}/users/me`);
-  return response;
+  return fetchWithAuth(`${API_BASE_URL}/users/me`);
 }
 
-export async function updateUserProfile(userData: { name?: string }) {
-  const response = await fetchWithAuth(`${API_BASE_URL}/users/me`, {
+export async function updateUserProfile(userData: { name?: string, profile_photo_url?: string }) {
+  return fetchWithAuth(`${API_BASE_URL}/users/me`, {
     method: "PUT",
     body: JSON.stringify(userData),
   });
-  return response;
+}
+
+export async function uploadProfilePhoto(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const token = localStorage.getItem("token");
+  if (!token) {
+    throw new Error("No authentication token found. Please log in.");
+  }
+
+  const response = await fetch(`${API_BASE_URL}/users/me/photo`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to upload profile photo");
+  }
+
+  return response.json();
 }

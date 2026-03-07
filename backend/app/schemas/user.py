@@ -5,10 +5,10 @@ from typing import Optional
 class UserBase(BaseModel):
     email: EmailStr
     name: Optional[str] = None
+    profile_photo_url: Optional[str] = None
 
 class UserCreate(UserBase):
     password: str
-    name: Optional[str] = None
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -20,7 +20,6 @@ class User(UserBase):
     rest_tokens_available: int
     created_at: datetime
     updated_at: datetime
-    name: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -34,3 +33,4 @@ class TokenData(BaseModel):
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
+    profile_photo_url: Optional[str] = None
